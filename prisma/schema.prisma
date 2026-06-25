@@ -3,19 +3,19 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "mongodb"
   url      = env("DATABASE_URL")
 }
 
 model Member {
-  id     Int     @id @default(autoincrement())
+  id     String  @id @default(auto()) @map("_id") @db.ObjectId
   name   String  @unique
   active Boolean @default(true)
   orders Order[]
 }
 
 model Dish {
-  id     Int     @id @default(autoincrement())
+  id     String  @id @default(auto()) @map("_id") @db.ObjectId
   name   String
   price  Float
   active Boolean @default(true)
@@ -23,17 +23,17 @@ model Dish {
 }
 
 model OrderSession {
-  id     Int      @id @default(autoincrement())
+  id     String   @id @default(auto()) @map("_id") @db.ObjectId
   date   DateTime @unique
   note   String?
   orders Order[]
 }
 
 model Order {
-  id        Int          @id @default(autoincrement())
-  memberId  Int
-  dishId    Int
-  sessionId Int
+  id        String       @id @default(auto()) @map("_id") @db.ObjectId
+  memberId  String       @db.ObjectId
+  dishId    String       @db.ObjectId
+  sessionId String       @db.ObjectId
   unitPrice Float
   paid      Boolean      @default(false)
   member    Member       @relation(fields: [memberId], references: [id])

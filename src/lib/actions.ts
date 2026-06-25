@@ -13,9 +13,9 @@ export async function getOrCreateSession(dateStr: string) {
 }
 
 export async function upsertOrder(
-  sessionId: number,
-  memberId: number,
-  dishId: number | null
+  sessionId: string,
+  memberId: string,
+  dishId: string | null
 ) {
   const existing = await prisma.order.findFirst({
     where: { sessionId, memberId },
@@ -53,7 +53,7 @@ export async function upsertOrder(
   return order;
 }
 
-export async function togglePaid(orderId: number) {
+export async function togglePaid(orderId: string) {
   const order = await prisma.order.findUnique({ where: { id: orderId } });
   if (!order) return;
   await prisma.order.update({
@@ -75,7 +75,7 @@ export async function addDish(name: string, price: number) {
   revalidatePath("/");
 }
 
-export async function getDebt(memberId: number, beforeDate: Date) {
+export async function getDebt(memberId: string, beforeDate: Date) {
   const result = await prisma.order.aggregate({
     where: {
       memberId,
@@ -109,7 +109,7 @@ export async function getSessionData(dateStr: string) {
     orderBy: { id: "asc" },
   });
 
-  const debts: Record<number, number> = {};
+  const debts: Record<string, number> = {};
   for (const member of members) {
     debts[member.id] = await getDebt(member.id, date);
   }

@@ -8,18 +8,18 @@ import {
   togglePaid,
 } from "@/lib/actions";
 
-type Member = { id: number; name: string };
-type Dish = { id: number; name: string; price: number };
+type Member = { id: string; name: string };
+type Dish = { id: string; name: string; price: number };
 type Order = {
-  id: number;
-  memberId: number;
-  dishId: number;
+  id: string;
+  memberId: string;
+  dishId: string;
   unitPrice: number;
   paid: boolean;
   member: Member;
   dish: Dish;
 };
-type Session = { id: number; orders: Order[] } | null;
+type Session = { id: string; orders: Order[] } | null;
 
 export default function OrderTable({
   dateStr,
@@ -32,11 +32,11 @@ export default function OrderTable({
   session: Session;
   members: Member[];
   dishes: Dish[];
-  debts: Record<number, number>;
+  debts: Record<string, number>;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [loadingCell, setLoadingCell] = useState<number | null>(null);
+  const [loadingCell, setLoadingCell] = useState<string | null>(null);
 
   const orderMap = new Map<number, Order>();
   if (session) {
@@ -52,17 +52,17 @@ export default function OrderTable({
     totalAmount += order.unitPrice;
   }
 
-  async function handleDishChange(memberId: number, dishIdStr: string) {
+  async function handleDishChange(memberId: string, dishIdStr: string) {
     setLoadingCell(memberId);
-    const dishId = dishIdStr === "" ? null : parseInt(dishIdStr);
+    const dishId = dishIdStr === "" ? null : dishIdStr;
     const sess = await getOrCreateSession(dateStr);
     await upsertOrder(sess.id, memberId, dishId);
     setLoadingCell(null);
     startTransition(() => router.refresh());
   }
 
-  async function handleTogglePaid(orderId: number) {
-    setLoadingCell(orderId * -1);
+  async function handleTogglePaid(orderId: string) {
+    setLoadingCell(`paid-${orderId}`);
     await togglePaid(orderId);
     setLoadingCell(null);
     startTransition(() => router.refresh());
@@ -111,7 +111,7 @@ export default function OrderTable({
               const debt = debts[member.id] || 0;
               const isLoading =
                 loadingCell === member.id ||
-                (order && loadingCell === order.id * -1);
+                (order && loadingCell === `paid-${order.id}`);
 
               return (
                 <tr
