@@ -1,0 +1,42 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Member {
+  id     Int     @id @default(autoincrement())
+  name   String  @unique
+  active Boolean @default(true)
+  orders Order[]
+}
+
+model Dish {
+  id     Int     @id @default(autoincrement())
+  name   String
+  price  Float
+  active Boolean @default(true)
+  orders Order[]
+}
+
+model OrderSession {
+  id     Int      @id @default(autoincrement())
+  date   DateTime @unique
+  note   String?
+  orders Order[]
+}
+
+model Order {
+  id        Int          @id @default(autoincrement())
+  memberId  Int
+  dishId    Int
+  sessionId Int
+  unitPrice Float
+  paid      Boolean      @default(false)
+  member    Member       @relation(fields: [memberId], references: [id])
+  dish      Dish         @relation(fields: [dishId], references: [id])
+  session   OrderSession @relation(fields: [sessionId], references: [id])
+}
