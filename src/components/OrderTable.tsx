@@ -38,7 +38,7 @@ export default function OrderTable({
   const [isPending, startTransition] = useTransition();
   const [loadingCell, setLoadingCell] = useState<string | null>(null);
 
-  const orderMap = new Map<number, Order>();
+  const orderMap = new Map<string, Order>();
   if (session) {
     for (const order of session.orders) {
       orderMap.set(order.memberId, order);

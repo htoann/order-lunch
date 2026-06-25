@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "kill-port 3009",
     "dev": "next dev --port 3009",
     "build": "next build",
     "start": "next start",
@@ -37,6 +38,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
+    "kill-port": "^2.0.1",
     "tailwindcss": "^4",
     "tsx": "^4.22.4",
     "typescript": "^5"
