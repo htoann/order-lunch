@@ -59,7 +59,7 @@ export default function OrderTable({
   const orderCount = orderMap.size;
   const perPerson =
     session?.totalBill && orderCount > 0
-      ? Math.round(session.totalBill / orderCount)
+      ? Math.ceil(session.totalBill / orderCount)
       : null;
 
   const dishCounts: Record<string, number> = {};
