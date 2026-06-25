@@ -39,10 +39,15 @@ export default function OrderTable({
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [loadingCell, setLoadingCell] = useState<string | null>(null);
   const [billInput, setBillInput] = useState(
     session?.totalBill?.toString() ?? ""
   );
+  const [optimisticPaid, setOptimisticPaid] = useState<Record<string, boolean>>(
+    {}
+  );
+  const [optimisticDish, setOptimisticDish] = useState<
+    Record<string, string | null>
+  >({});
 
   const orderMap = new Map<string, Order>();
   if (session) {
@@ -64,20 +69,33 @@ export default function OrderTable({
 
   const totalThanhTien = perPerson ? perPerson * orderCount : 0;
 
-  async function handleDishChange(memberId: string, dishIdStr: string) {
-    setLoadingCell(memberId);
+  function handleDishChange(memberId: string, dishIdStr: string) {
     const dishId = dishIdStr === "" ? null : dishIdStr;
-    const sess = await getOrCreateSession(dateStr);
-    await upsertOrder(sess.id, memberId, dishId);
-    setLoadingCell(null);
-    startTransition(() => router.refresh());
+    setOptimisticDish((prev) => ({ ...prev, [memberId]: dishId }));
+
+    getOrCreateSession(dateStr).then((sess) => {
+      upsertOrder(sess.id, memberId, dishId).then(() => {
+        setOptimisticDish((prev) => {
+          const next = { ...prev };
+          delete next[memberId];
+          return next;
+        });
+        startTransition(() => router.refresh());
+      });
+    });
   }
 
-  async function handleTogglePaid(orderId: string) {
-    setLoadingCell(`paid-${orderId}`);
-    await togglePaid(orderId);
-    setLoadingCell(null);
-    startTransition(() => router.refresh());
+  function handleTogglePaid(orderId: string, currentPaid: boolean) {
+    setOptimisticPaid((prev) => ({ ...prev, [orderId]: !currentPaid }));
+
+    togglePaid(orderId).then(() => {
+      setOptimisticPaid((prev) => {
+        const next = { ...prev };
+        delete next[orderId];
+        return next;
+      });
+      startTransition(() => router.refresh());
+    });
   }
 
   async function handleUpdateBill() {
@@ -150,16 +168,28 @@ export default function OrderTable({
             {members.map((member, idx) => {
               const order = orderMap.get(member.id);
               const debt = debts[member.id] || 0;
-              const isLoading =
-                loadingCell === member.id ||
-                (order && loadingCell === `paid-${order.id}`);
+
+              const displayDishId =
+                member.id in optimisticDish
+                  ? optimisticDish[member.id]
+                  : (order?.dishId ?? null);
+              const hasOrder = displayDishId !== null;
+
+              const paidValue =
+                order && order.id in optimisticPaid
+                  ? optimisticPaid[order.id]
+                  : (order?.paid ?? false);
+
+              const isOptimistic =
+                member.id in optimisticDish ||
+                (order && order.id in optimisticPaid);
 
               return (
                 <tr
                   key={member.id}
                   className={`border-t border-gray-100 ${
                     idx % 2 === 0 ? "bg-white" : "bg-gray-50"
-                  } ${isLoading ? "opacity-50" : ""}`}
+                  } ${isOptimistic ? "opacity-70" : ""}`}
                 >
                   <td className="px-3 py-2 text-gray-600">{idx + 1}</td>
                   <td className="px-3 py-2 font-medium text-gray-800">
@@ -167,12 +197,11 @@ export default function OrderTable({
                   </td>
                   <td className="px-3 py-2">
                     <select
-                      value={order?.dishId ?? ""}
+                      value={displayDishId ?? ""}
                       onChange={(e) =>
                         handleDishChange(member.id, e.target.value)
                       }
                       className="w-full rounded border border-gray-200 bg-white px-2 py-1 text-sm text-gray-800"
-                      disabled={isPending}
                     >
                       <option value="">-- Chọn món --</option>
                       {dishes.map((dish) => (
@@ -183,18 +212,19 @@ export default function OrderTable({
                     </select>
                   </td>
                   <td className="px-3 py-2 text-right text-gray-700">
-                    {order ? formatCurrency(UNIT_PRICE) : ""}
+                    {hasOrder ? formatCurrency(UNIT_PRICE) : ""}
                   </td>
                   <td className="px-3 py-2 text-right font-medium text-gray-800">
-                    {order && perPerson ? formatCurrency(perPerson) : ""}
+                    {hasOrder && perPerson ? formatCurrency(perPerson) : ""}
                   </td>
                   <td className="px-3 py-2 text-center">
-                    {order && (
+                    {order && hasOrder && (
                       <input
                         type="checkbox"
-                        checked={order.paid}
-                        onChange={() => handleTogglePaid(order.id)}
-                        disabled={isPending}
+                        checked={paidValue}
+                        onChange={() =>
+                          handleTogglePaid(order.id, order.paid)
+                        }
                         className="h-4 w-4 cursor-pointer accent-green-600"
                       />
                     )}
