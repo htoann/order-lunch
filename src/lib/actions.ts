@@ -3,6 +3,8 @@
 import { prisma } from "./prisma";
 import { revalidatePath } from "next/cache";
 
+const UNIT_PRICE = 35000;
+
 export async function getOrCreateSession(dateStr: string) {
   const date = new Date(dateStr + "T00:00:00.000Z");
   let session = await prisma.orderSession.findUnique({ where: { date } });
@@ -29,13 +31,10 @@ export async function upsertOrder(
     return null;
   }
 
-  const dish = await prisma.dish.findUnique({ where: { id: dishId } });
-  if (!dish) return null;
-
   if (existing) {
     const updated = await prisma.order.update({
       where: { id: existing.id },
-      data: { dishId, unitPrice: dish.price },
+      data: { dishId, unitPrice: UNIT_PRICE },
     });
     revalidatePath("/");
     return updated;
@@ -46,11 +45,20 @@ export async function upsertOrder(
       sessionId,
       memberId,
       dishId,
-      unitPrice: dish.price,
+      unitPrice: UNIT_PRICE,
     },
   });
   revalidatePath("/");
   return order;
+}
+
+export async function updateTotalBill(dateStr: string, totalBill: number | null) {
+  const session = await getOrCreateSession(dateStr);
+  await prisma.orderSession.update({
+    where: { id: session.id },
+    data: { totalBill },
+  });
+  revalidatePath("/");
 }
 
 export async function togglePaid(orderId: string) {

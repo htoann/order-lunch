@@ -6,7 +6,10 @@ import {
   getOrCreateSession,
   upsertOrder,
   togglePaid,
+  updateTotalBill,
 } from "@/lib/actions";
+
+const UNIT_PRICE = 35000;
 
 type Member = { id: string; name: string };
 type Dish = { id: string; name: string; price: number };
@@ -19,7 +22,7 @@ type Order = {
   member: Member;
   dish: Dish;
 };
-type Session = { id: string; orders: Order[] } | null;
+type Session = { id: string; totalBill: number | null; orders: Order[] } | null;
 
 export default function OrderTable({
   dateStr,
@@ -37,6 +40,9 @@ export default function OrderTable({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [loadingCell, setLoadingCell] = useState<string | null>(null);
+  const [billInput, setBillInput] = useState(
+    session?.totalBill?.toString() ?? ""
+  );
 
   const orderMap = new Map<string, Order>();
   if (session) {
@@ -45,12 +51,18 @@ export default function OrderTable({
     }
   }
 
+  const orderCount = orderMap.size;
+  const perPerson =
+    session?.totalBill && orderCount > 0
+      ? Math.round(session.totalBill / orderCount)
+      : null;
+
   const dishCounts: Record<string, number> = {};
-  let totalAmount = 0;
   for (const order of orderMap.values()) {
     dishCounts[order.dish.name] = (dishCounts[order.dish.name] || 0) + 1;
-    totalAmount += order.unitPrice;
   }
+
+  const totalThanhTien = perPerson ? perPerson * orderCount : 0;
 
   async function handleDishChange(memberId: string, dishIdStr: string) {
     setLoadingCell(memberId);
@@ -68,21 +80,50 @@ export default function OrderTable({
     startTransition(() => router.refresh());
   }
 
+  async function handleUpdateBill() {
+    const value = billInput.trim() === "" ? null : parseFloat(billInput);
+    if (value !== null && isNaN(value)) return;
+    await updateTotalBill(dateStr, value);
+    startTransition(() => router.refresh());
+  }
+
   function formatCurrency(amount: number) {
     return new Intl.NumberFormat("vi-VN").format(amount);
   }
 
   return (
     <div>
-      {/* Date selector */}
-      <div className="mb-4 flex items-center gap-3">
-        <label className="text-sm font-medium text-gray-700">Ngày:</label>
-        <input
-          type="date"
-          value={dateStr}
-          onChange={(e) => router.push(`/?date=${e.target.value}`)}
-          className="rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-800"
-        />
+      {/* Date selector + Total bill input */}
+      <div className="mb-4 flex flex-wrap items-center gap-4">
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium text-gray-700">Ngày:</label>
+          <input
+            type="date"
+            value={dateStr}
+            onChange={(e) => router.push(`/?date=${e.target.value}`)}
+            className="rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-800"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium text-gray-700">
+            Tổng bill:
+          </label>
+          <input
+            type="number"
+            value={billInput}
+            onChange={(e) => setBillInput(e.target.value)}
+            onBlur={handleUpdateBill}
+            onKeyDown={(e) => e.key === "Enter" && handleUpdateBill()}
+            placeholder="Nhập tổng bill..."
+            className="w-40 rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-800"
+            min="0"
+          />
+          {perPerson && (
+            <span className="text-sm text-gray-500">
+              ÷ {orderCount} = {formatCurrency(perPerson)}/người
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Order table */}
@@ -142,24 +183,20 @@ export default function OrderTable({
                     </select>
                   </td>
                   <td className="px-3 py-2 text-right text-gray-700">
-                    {order ? formatCurrency(order.unitPrice) : ""}
+                    {order ? formatCurrency(UNIT_PRICE) : ""}
                   </td>
                   <td className="px-3 py-2 text-right font-medium text-gray-800">
-                    {order ? formatCurrency(order.unitPrice) : ""}
+                    {order && perPerson ? formatCurrency(perPerson) : ""}
                   </td>
                   <td className="px-3 py-2 text-center">
                     {order && (
-                      <button
-                        onClick={() => handleTogglePaid(order.id)}
-                        className={`inline-flex h-6 w-6 items-center justify-center rounded ${
-                          order.paid
-                            ? "bg-green-100 text-green-700"
-                            : "bg-red-100 text-red-500"
-                        }`}
+                      <input
+                        type="checkbox"
+                        checked={order.paid}
+                        onChange={() => handleTogglePaid(order.id)}
                         disabled={isPending}
-                      >
-                        {order.paid ? "✓" : "✗"}
-                      </button>
+                        className="h-4 w-4 cursor-pointer accent-green-600"
+                      />
                     )}
                   </td>
                   <td
@@ -180,7 +217,7 @@ export default function OrderTable({
               </td>
               <td></td>
               <td className="px-3 py-2 text-right text-gray-800">
-                {formatCurrency(totalAmount)}
+                {totalThanhTien > 0 ? formatCurrency(totalThanhTien) : ""}
               </td>
               <td></td>
               <td></td>

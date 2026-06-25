@@ -23,11 +23,12 @@ model Dish {
 }
 
 model OrderSession {
-  id     String         @id @default(auto()) @map("_id") @db.ObjectId
-  date   DateTime       @unique
-  note   String?
-  orders Order[]
-  images SessionImage[]
+  id        String         @id @default(auto()) @map("_id") @db.ObjectId
+  date      DateTime       @unique
+  note      String?
+  totalBill Float?
+  orders    Order[]
+  images    SessionImage[]
 }
 
 model SessionImage {
