@@ -5,7 +5,7 @@
   "scripts": {
     "predev": "kill-port 3009",
     "dev": "next dev --port 3009",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
     "seed": "tsx prisma/seed.ts"

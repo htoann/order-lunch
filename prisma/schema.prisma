@@ -23,10 +23,20 @@ model Dish {
 }
 
 model OrderSession {
-  id     String   @id @default(auto()) @map("_id") @db.ObjectId
-  date   DateTime @unique
+  id     String         @id @default(auto()) @map("_id") @db.ObjectId
+  date   DateTime       @unique
   note   String?
   orders Order[]
+  images SessionImage[]
+}
+
+model SessionImage {
+  id        String       @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId String       @db.ObjectId
+  data      String
+  filename  String
+  createdAt DateTime     @default(now())
+  session   OrderSession @relation(fields: [sessionId], references: [id])
 }
 
 model Order {

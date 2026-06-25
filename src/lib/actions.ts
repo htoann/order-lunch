@@ -87,6 +87,19 @@ export async function getDebt(memberId: string, beforeDate: Date) {
   return result._sum.unitPrice || 0;
 }
 
+export async function uploadSessionImage(dateStr: string, data: string, filename: string) {
+  const session = await getOrCreateSession(dateStr);
+  await prisma.sessionImage.create({
+    data: { sessionId: session.id, data, filename },
+  });
+  revalidatePath("/");
+}
+
+export async function deleteSessionImage(imageId: string) {
+  await prisma.sessionImage.delete({ where: { id: imageId } });
+  revalidatePath("/");
+}
+
 export async function getSessionData(dateStr: string) {
   const date = new Date(dateStr + "T00:00:00.000Z");
 
@@ -95,6 +108,9 @@ export async function getSessionData(dateStr: string) {
     include: {
       orders: {
         include: { member: true, dish: true },
+      },
+      images: {
+        orderBy: { createdAt: "asc" },
       },
     },
   });
