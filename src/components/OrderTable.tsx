@@ -110,28 +110,31 @@ export default function OrderTable({
     });
   }
 
-  async function handleUpdateBill() {
+  function handleUpdateBill() {
     const value = billInput.trim() === "" ? null : parseFloat(billInput);
     if (value !== null && isNaN(value)) return;
-    await updateTotalBill(dateStr, value);
-    startTransition(() => router.refresh());
+    updateTotalBill(dateStr, value).then(() => {
+      startTransition(() => router.refresh());
+    });
   }
 
-  async function handleUpdateUnitPrice(orderId: string) {
+  function handleUpdateUnitPrice(orderId: string) {
     const value = parseFloat(editPriceValue);
     if (isNaN(value) || value < 0) return;
-    await updateOrderUnitPrice(orderId, value);
     setEditingPriceId(null);
-    startTransition(() => router.refresh());
+    updateOrderUnitPrice(orderId, value).then(() => {
+      startTransition(() => router.refresh());
+    });
   }
 
-  async function handleUpdateDebt(memberId: string) {
+  function handleUpdateDebt(memberId: string) {
     const trimmed = editDebtValue.trim();
     const value = trimmed === "" ? null : parseFloat(trimmed);
     if (value !== null && (isNaN(value) || value < 0)) return;
-    await updateMemberDebt(memberId, value);
     setEditingDebtId(null);
-    startTransition(() => router.refresh());
+    updateMemberDebt(memberId, value).then(() => {
+      startTransition(() => router.refresh());
+    });
   }
 
   function formatCurrency(amount: number) {
