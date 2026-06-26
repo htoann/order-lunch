@@ -20,7 +20,7 @@ export default function ImagePanel({
 }) {
   const router = useRouter();
   const { isAdmin } = useAdmin();
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
   const [uploading, setUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -47,9 +47,10 @@ export default function ImagePanel({
     startTransition(() => router.refresh());
   }
 
-  async function handleDelete(imageId: string) {
-    await deleteSessionImage(imageId);
-    startTransition(() => router.refresh());
+  function handleDelete(imageId: string) {
+    deleteSessionImage(imageId).then(() => {
+      startTransition(() => router.refresh());
+    });
   }
 
   return (
@@ -61,7 +62,7 @@ export default function ImagePanel({
         {isAdmin && (
           <label
             className={`cursor-pointer rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 ${
-              uploading || isPending ? "opacity-50 pointer-events-none" : ""
+              uploading ? "opacity-50 pointer-events-none" : ""
             }`}
           >
             {uploading ? "Uploading..." : "Upload"}
@@ -102,7 +103,6 @@ export default function ImagePanel({
                   <button
                     onClick={() => handleDelete(img.id)}
                     className="rounded bg-red-600 px-2 py-0.5 text-xs text-white hover:bg-red-700"
-                    disabled={isPending}
                   >
                     Xóa
                   </button>

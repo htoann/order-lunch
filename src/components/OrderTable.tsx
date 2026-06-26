@@ -72,10 +72,18 @@ export default function OrderTable({
 
   const dishCounts: Record<string, number> = {};
   for (const order of orderMap.values()) {
-    dishCounts[order.dish.name] = (dishCounts[order.dish.name] || 0) + 1;
+    dishCounts[order.dishId] = (dishCounts[order.dishId] || 0) + 1;
   }
+  const sortedDishCounts = dishes
+    .filter((d) => dishCounts[d.id])
+    .map((d) => ({ id: d.id, name: d.name, count: dishCounts[d.id] }));
 
   const totalThanhTien = perPerson ? perPerson * orderCount : 0;
+
+  const ROW_COLORS = [
+    "#dbeafe", "#fce7f3", "#d1fae5", "#fef3c7",
+    "#ede9fe", "#ccfbf1", "#fee2e2", "#e0e7ff",
+  ];
 
   function handleDishChange(memberId: string, dishIdStr: string) {
     const dishId = dishIdStr === "" ? null : dishIdStr;
@@ -232,9 +240,8 @@ export default function OrderTable({
               return (
                 <tr
                   key={member.id}
-                  className={`border-t border-gray-100 ${
-                    idx % 2 === 0 ? "bg-white" : "bg-gray-50"
-                  }`}
+                  className="border-t border-gray-100"
+                  style={{ backgroundColor: hasOrder ? ROW_COLORS[idx % ROW_COLORS.length] : "#ffffff" }}
                 >
                   <td className="px-3 py-2 text-gray-600">{idx + 1}</td>
                   <td className="px-3 py-2 font-medium text-gray-800">
@@ -357,18 +364,19 @@ export default function OrderTable({
       </div>
 
       {/* Dish summary */}
-      {Object.keys(dishCounts).length > 0 && (
-        <div className="mt-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-          <h3 className="mb-2 text-sm font-semibold text-gray-700">
+      {sortedDishCounts.length > 0 && (
+        <div className="mt-4 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+          <h3 className="mb-3 text-base font-bold text-gray-700">
             Tổng hợp món
           </h3>
           <div className="flex flex-wrap gap-3">
-            {Object.entries(dishCounts).map(([name, count]) => (
+            {sortedDishCounts.map((d, i) => (
               <span
-                key={name}
-                className="rounded-full bg-blue-50 px-3 py-1 text-sm text-blue-700"
+                key={d.id}
+                className="rounded-full px-4 py-2 text-base font-bold"
+                style={{ backgroundColor: ROW_COLORS[i % ROW_COLORS.length], color: "#1f2937" }}
               >
-                {name}: <strong>{count}</strong>
+                {d.name}: {d.count}
               </span>
             ))}
           </div>
