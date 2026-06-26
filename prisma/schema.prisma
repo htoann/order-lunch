@@ -8,10 +8,11 @@ datasource db {
 }
 
 model Member {
-  id     String  @id @default(auto()) @map("_id") @db.ObjectId
-  name   String  @unique
-  active Boolean @default(true)
-  orders Order[]
+  id           String  @id @default(auto()) @map("_id") @db.ObjectId
+  name         String  @unique
+  active       Boolean @default(true)
+  debtOverride Float?
+  orders       Order[]
 }
 
 model Dish {

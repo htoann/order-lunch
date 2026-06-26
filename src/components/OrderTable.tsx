@@ -7,7 +7,11 @@ import {
   upsertOrder,
   togglePaid,
   updateTotalBill,
+  deleteOrder,
+  updateOrderUnitPrice,
+  updateMemberDebt,
 } from "@/lib/actions";
+import { useAdmin } from "./AdminProvider";
 
 const UNIT_PRICE = 35000;
 
@@ -38,6 +42,7 @@ export default function OrderTable({
   debts: Record<string, number>;
 }) {
   const router = useRouter();
+  const { isAdmin } = useAdmin();
   const [isPending, startTransition] = useTransition();
   const [billInput, setBillInput] = useState(
     session?.totalBill?.toString() ?? ""
@@ -48,6 +53,8 @@ export default function OrderTable({
   const [optimisticDish, setOptimisticDish] = useState<
     Record<string, string | null>
   >({});
+  const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
+  const [editPriceValue, setEditPriceValue] = useState("");
 
   const orderMap = new Map<string, Order>();
   if (session) {
@@ -75,12 +82,14 @@ export default function OrderTable({
 
     getOrCreateSession(dateStr).then((sess) => {
       upsertOrder(sess.id, memberId, dishId).then(() => {
-        setOptimisticDish((prev) => {
-          const next = { ...prev };
-          delete next[memberId];
-          return next;
+        startTransition(() => {
+          router.refresh();
+          setOptimisticDish((prev) => {
+            const next = { ...prev };
+            delete next[memberId];
+            return next;
+          });
         });
-        startTransition(() => router.refresh());
       });
     });
   }
@@ -89,12 +98,14 @@ export default function OrderTable({
     setOptimisticPaid((prev) => ({ ...prev, [orderId]: !currentPaid }));
 
     togglePaid(orderId).then(() => {
-      setOptimisticPaid((prev) => {
-        const next = { ...prev };
-        delete next[orderId];
-        return next;
+      startTransition(() => {
+        router.refresh();
+        setOptimisticPaid((prev) => {
+          const next = { ...prev };
+          delete next[orderId];
+          return next;
+        });
       });
-      startTransition(() => router.refresh());
     });
   }
 
@@ -102,6 +113,19 @@ export default function OrderTable({
     const value = billInput.trim() === "" ? null : parseFloat(billInput);
     if (value !== null && isNaN(value)) return;
     await updateTotalBill(dateStr, value);
+    startTransition(() => router.refresh());
+  }
+
+  async function handleDeleteOrder(orderId: string) {
+    await deleteOrder(orderId);
+    startTransition(() => router.refresh());
+  }
+
+  async function handleUpdateUnitPrice(orderId: string) {
+    const value = parseFloat(editPriceValue);
+    if (isNaN(value) || value < 0) return;
+    await updateOrderUnitPrice(orderId, value);
+    setEditingPriceId(null);
     startTransition(() => router.refresh());
   }
 
@@ -162,6 +186,11 @@ export default function OrderTable({
               <th className="px-3 py-2.5 text-right font-medium">
                 Tổng nợ cũ
               </th>
+              {isAdmin && (
+                <th className="px-3 py-2.5 text-center font-medium">
+                  Thao tác
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -212,7 +241,36 @@ export default function OrderTable({
                     </select>
                   </td>
                   <td className="px-3 py-2 text-right text-gray-700">
-                    {hasOrder ? formatCurrency(UNIT_PRICE) : ""}
+                    {hasOrder && order ? (
+                      isAdmin && editingPriceId === order.id ? (
+                        <input
+                          type="number"
+                          value={editPriceValue}
+                          onChange={(e) => setEditPriceValue(e.target.value)}
+                          onBlur={() => handleUpdateUnitPrice(order.id)}
+                          onKeyDown={(e) =>
+                            e.key === "Enter" && handleUpdateUnitPrice(order.id)
+                          }
+                          className="w-24 rounded border border-gray-300 px-1 py-0.5 text-right text-sm text-gray-800"
+                          autoFocus
+                          min="0"
+                        />
+                      ) : (
+                        <span
+                          className={isAdmin ? "cursor-pointer hover:text-blue-600" : ""}
+                          onClick={() => {
+                            if (isAdmin) {
+                              setEditingPriceId(order.id);
+                              setEditPriceValue(order.unitPrice.toString());
+                            }
+                          }}
+                        >
+                          {formatCurrency(order.unitPrice)}
+                        </span>
+                      )
+                    ) : (
+                      ""
+                    )}
                   </td>
                   <td className="px-3 py-2 text-right font-medium text-gray-800">
                     {hasOrder && perPerson ? formatCurrency(perPerson) : ""}
@@ -236,6 +294,19 @@ export default function OrderTable({
                   >
                     {debt > 0 ? formatCurrency(debt) : "0"}
                   </td>
+                  {isAdmin && (
+                    <td className="px-3 py-2 text-center">
+                      {order && hasOrder && (
+                        <button
+                          onClick={() => handleDeleteOrder(order.id)}
+                          className="rounded bg-red-100 px-2 py-0.5 text-xs text-red-600 hover:bg-red-200"
+                          disabled={isPending}
+                        >
+                          Xóa
+                        </button>
+                      )}
+                    </td>
+                  )}
                 </tr>
               );
             })}
@@ -251,6 +322,7 @@ export default function OrderTable({
               </td>
               <td></td>
               <td></td>
+              {isAdmin && <td></td>}
             </tr>
           </tfoot>
         </table>

@@ -1,9 +1,62 @@
 "use server";
 
-import { prisma } from "./prisma";
 import { revalidatePath } from "next/cache";
+import { prisma } from "./prisma";
 
 const UNIT_PRICE = 35000;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "claytran";
+
+export async function verifyAdminPassword(password: string) {
+  return password === ADMIN_PASSWORD;
+}
+
+export async function updateMember(id: string, name: string) {
+  if (!name.trim()) return;
+  await prisma.member.update({
+    where: { id },
+    data: { name: name.trim() },
+  });
+  revalidatePath("/");
+}
+
+export async function deleteMember(id: string) {
+  await prisma.member.update({
+    where: { id },
+    data: { active: false },
+  });
+  revalidatePath("/");
+}
+
+export async function updateDish(id: string, name: string, price: number) {
+  if (!name.trim() || price <= 0) return;
+  await prisma.dish.update({
+    where: { id },
+    data: { name: name.trim(), price },
+  });
+  revalidatePath("/");
+}
+
+export async function deleteDish(id: string) {
+  await prisma.dish.update({
+    where: { id },
+    data: { active: false },
+  });
+  revalidatePath("/");
+}
+
+export async function deleteOrder(orderId: string) {
+  await prisma.order.delete({ where: { id: orderId } });
+  revalidatePath("/");
+}
+
+export async function updateOrderUnitPrice(orderId: string, unitPrice: number) {
+  if (unitPrice < 0) return;
+  await prisma.order.update({
+    where: { id: orderId },
+    data: { unitPrice },
+  });
+  revalidatePath("/");
+}
 
 export async function getOrCreateSession(dateStr: string) {
   const date = new Date(dateStr + "T00:00:00.000Z");
@@ -17,7 +70,7 @@ export async function getOrCreateSession(dateStr: string) {
 export async function upsertOrder(
   sessionId: string,
   memberId: string,
-  dishId: string | null
+  dishId: string | null,
 ) {
   const existing = await prisma.order.findFirst({
     where: { sessionId, memberId },
@@ -52,7 +105,10 @@ export async function upsertOrder(
   return order;
 }
 
-export async function updateTotalBill(dateStr: string, totalBill: number | null) {
+export async function updateTotalBill(
+  dateStr: string,
+  totalBill: number | null,
+) {
   const session = await getOrCreateSession(dateStr);
   await prisma.orderSession.update({
     where: { id: session.id },
@@ -83,7 +139,18 @@ export async function addDish(name: string, price: number) {
   revalidatePath("/");
 }
 
+export async function updateMemberDebt(memberId: string, debt: number | null) {
+  await prisma.member.update({
+    where: { id: memberId },
+    data: { debtOverride: debt },
+  });
+  revalidatePath("/");
+}
+
 export async function getDebt(memberId: string, beforeDate: Date) {
+  const member = await prisma.member.findUnique({ where: { id: memberId } });
+  if (member?.debtOverride != null) return member.debtOverride;
+
   const result = await prisma.order.aggregate({
     where: {
       memberId,
@@ -95,7 +162,11 @@ export async function getDebt(memberId: string, beforeDate: Date) {
   return result._sum.unitPrice || 0;
 }
 
-export async function uploadSessionImage(dateStr: string, data: string, filename: string) {
+export async function uploadSessionImage(
+  dateStr: string,
+  data: string,
+  filename: string,
+) {
   const session = await getOrCreateSession(dateStr);
   await prisma.sessionImage.create({
     data: { sessionId: session.id, data, filename },
