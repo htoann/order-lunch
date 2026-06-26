@@ -298,21 +298,34 @@ export default function OrderTable({
                       debt > 0 ? "font-medium text-red-600" : "text-gray-400"
                     }`}
                   >
-                    {debt > 0 ? formatCurrency(debt) : "0"}
+                    {isAdmin && editingDebtId === member.id ? (
+                      <input
+                        type="number"
+                        value={editDebtValue}
+                        onChange={(e) => setEditDebtValue(e.target.value)}
+                        onBlur={() => handleUpdateDebt(member.id)}
+                        onKeyDown={(e) =>
+                          e.key === "Enter" && handleUpdateDebt(member.id)
+                        }
+                        placeholder="Để trống = tự tính"
+                        className="w-28 rounded border border-gray-300 px-1 py-0.5 text-right text-sm text-gray-800"
+                        autoFocus
+                        min="0"
+                      />
+                    ) : (
+                      <span
+                        className={isAdmin ? "cursor-pointer hover:text-blue-600" : ""}
+                        onClick={() => {
+                          if (isAdmin) {
+                            setEditingDebtId(member.id);
+                            setEditDebtValue(debt > 0 ? debt.toString() : "");
+                          }
+                        }}
+                      >
+                        {debt > 0 ? formatCurrency(debt) : "0"}
+                      </span>
+                    )}
                   </td>
-                  {isAdmin && (
-                    <td className="px-3 py-2 text-center">
-                      {order && hasOrder && (
-                        <button
-                          onClick={() => handleDeleteOrder(order.id)}
-                          className="rounded bg-red-100 px-2 py-0.5 text-xs text-red-600 hover:bg-red-200"
-                          disabled={isPending}
-                        >
-                          Xóa
-                        </button>
-                      )}
-                    </td>
-                  )}
                 </tr>
               );
             })}
@@ -328,7 +341,6 @@ export default function OrderTable({
               </td>
               <td></td>
               <td></td>
-              {isAdmin && <td></td>}
             </tr>
           </tfoot>
         </table>
