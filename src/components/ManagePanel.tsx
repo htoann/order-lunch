@@ -11,6 +11,7 @@ import {
   deleteDish,
 } from "@/lib/actions";
 import { useAdmin } from "./AdminProvider";
+import { useToast } from "./ToastProvider";
 
 type Member = { id: string; name: string };
 type Dish = { id: string; name: string; price: number };

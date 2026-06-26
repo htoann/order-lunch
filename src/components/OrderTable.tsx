@@ -101,8 +101,8 @@ export default function OrderTable({
             return next;
           });
         });
-      });
-    });
+      }).catch(() => showError("Lỗi khi cập nhật món!"));
+    }).catch(() => showError("Lỗi kết nối server!"));
   }
 
   function handleTogglePaid(orderId: string, currentPaid: boolean) {
@@ -117,7 +117,7 @@ export default function OrderTable({
           return next;
         });
       });
-    });
+    }).catch(() => showError("Lỗi khi cập nhật thanh toán!"));
   }
 
   function handleUpdateBill() {
@@ -125,7 +125,7 @@ export default function OrderTable({
     if (value !== null && isNaN(value)) return;
     updateTotalBill(dateStr, value).then(() => {
       startTransition(() => router.refresh());
-    });
+    }).catch(() => showError("Lỗi khi cập nhật tổng bill!"));
   }
 
   function handleUpdateUnitPrice(orderId: string) {
@@ -134,7 +134,7 @@ export default function OrderTable({
     setEditingPriceId(null);
     updateOrderUnitPrice(orderId, value).then(() => {
       startTransition(() => router.refresh());
-    });
+    }).catch(() => showError("Lỗi khi cập nhật đơn giá!"));
   }
 
   function handleUpdateDebt(memberId: string) {
@@ -144,7 +144,7 @@ export default function OrderTable({
     setEditingDebtId(null);
     updateMemberDebt(memberId, value).then(() => {
       startTransition(() => router.refresh());
-    });
+    }).catch(() => showError("Lỗi khi cập nhật nợ!"));
   }
 
   function formatCurrency(amount: number) {
