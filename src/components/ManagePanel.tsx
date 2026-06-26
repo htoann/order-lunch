@@ -24,7 +24,7 @@ export default function ManagePanel({
 }) {
   const router = useRouter();
   const { isAdmin } = useAdmin();
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
   const [showPanel, setShowPanel] = useState(false);
   const [memberName, setMemberName] = useState("");
   const [dishName, setDishName] = useState("");
@@ -112,7 +112,7 @@ export default function ManagePanel({
               />
               <button
                 type="submit"
-                disabled={isPending}
+                disabled={false}
                 className="rounded bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
               >
                 Thêm
@@ -144,7 +144,7 @@ export default function ManagePanel({
                         <button
                           onClick={() => handleUpdateMember(m.id)}
                           className="text-xs text-green-600 hover:text-green-800"
-                          disabled={isPending}
+                          disabled={false}
                         >
                           Lưu
                         </button>
@@ -172,7 +172,7 @@ export default function ManagePanel({
                         <button
                           onClick={() => handleDeleteMember(m.id)}
                           className="text-xs text-red-600 hover:text-red-800"
-                          disabled={isPending}
+                          disabled={false}
                         >
                           Xóa
                         </button>
@@ -209,7 +209,7 @@ export default function ManagePanel({
               />
               <button
                 type="submit"
-                disabled={isPending}
+                disabled={false}
                 className="rounded bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
               >
                 Thêm
@@ -245,7 +245,7 @@ export default function ManagePanel({
                         <button
                           onClick={() => handleUpdateDish(d.id)}
                           className="text-xs text-green-600 hover:text-green-800"
-                          disabled={isPending}
+                          disabled={false}
                         >
                           Lưu
                         </button>
@@ -277,7 +277,7 @@ export default function ManagePanel({
                         <button
                           onClick={() => handleDeleteDish(d.id)}
                           className="text-xs text-red-600 hover:text-red-800"
-                          disabled={isPending}
+                          disabled={false}
                         >
                           Xóa
                         </button>

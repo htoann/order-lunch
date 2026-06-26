@@ -42,7 +42,7 @@ export default function OrderTable({
 }) {
   const router = useRouter();
   const { isAdmin } = useAdmin();
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
   const [billInput, setBillInput] = useState(
     session?.totalBill?.toString() ?? ""
   );
@@ -229,16 +229,12 @@ export default function OrderTable({
                   ? optimisticPaid[order.id]
                   : (order?.paid ?? false);
 
-              const isOptimistic =
-                member.id in optimisticDish ||
-                (order && order.id in optimisticPaid);
-
               return (
                 <tr
                   key={member.id}
                   className={`border-t border-gray-100 ${
                     idx % 2 === 0 ? "bg-white" : "bg-gray-50"
-                  } ${isOptimistic ? "opacity-70" : ""}`}
+                  }`}
                 >
                   <td className="px-3 py-2 text-gray-600">{idx + 1}</td>
                   <td className="px-3 py-2 font-medium text-gray-800">
