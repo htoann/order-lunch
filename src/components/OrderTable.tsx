@@ -55,6 +55,8 @@ export default function OrderTable({
   >({});
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
   const [editPriceValue, setEditPriceValue] = useState("");
+  const [editingDebtId, setEditingDebtId] = useState<string | null>(null);
+  const [editDebtValue, setEditDebtValue] = useState("");
 
   const orderMap = new Map<string, Order>();
   if (session) {
@@ -129,6 +131,15 @@ export default function OrderTable({
     startTransition(() => router.refresh());
   }
 
+  async function handleUpdateDebt(memberId: string) {
+    const trimmed = editDebtValue.trim();
+    const value = trimmed === "" ? null : parseFloat(trimmed);
+    if (value !== null && (isNaN(value) || value < 0)) return;
+    await updateMemberDebt(memberId, value);
+    setEditingDebtId(null);
+    startTransition(() => router.refresh());
+  }
+
   function formatCurrency(amount: number) {
     return new Intl.NumberFormat("vi-VN").format(amount);
   }
@@ -186,11 +197,6 @@ export default function OrderTable({
               <th className="px-3 py-2.5 text-right font-medium">
                 Tổng nợ cũ
               </th>
-              {isAdmin && (
-                <th className="px-3 py-2.5 text-center font-medium">
-                  Thao tác
-                </th>
-              )}
             </tr>
           </thead>
           <tbody>
