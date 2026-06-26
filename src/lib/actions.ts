@@ -181,32 +181,32 @@ export async function deleteSessionImage(imageId: string) {
 export async function getSessionData(dateStr: string) {
   const date = new Date(dateStr + "T00:00:00.000Z");
 
-  const session = await prisma.orderSession.findUnique({
-    where: { date },
-    include: {
-      orders: {
-        include: { member: true, dish: true },
+  const [session, members, dishes] = await Promise.all([
+    prisma.orderSession.findUnique({
+      where: { date },
+      include: {
+        orders: {
+          include: { member: true, dish: true },
+        },
+        images: {
+          orderBy: { createdAt: "asc" },
+        },
       },
-      images: {
-        orderBy: { createdAt: "asc" },
-      },
-    },
-  });
+    }),
+    prisma.member.findMany({
+      where: { active: true },
+      orderBy: { id: "asc" },
+    }),
+    prisma.dish.findMany({
+      where: { active: true },
+      orderBy: { id: "asc" },
+    }),
+  ]);
 
-  const members = await prisma.member.findMany({
-    where: { active: true },
-    orderBy: { id: "asc" },
-  });
-
-  const dishes = await prisma.dish.findMany({
-    where: { active: true },
-    orderBy: { id: "asc" },
-  });
-
-  const debts: Record<string, number> = {};
-  for (const member of members) {
-    debts[member.id] = await getDebt(member.id, date);
-  }
+  const debtEntries = await Promise.all(
+    members.map(async (m) => [m.id, await getDebt(m.id, date, m.debtOverride)] as const)
+  );
+  const debts: Record<string, number> = Object.fromEntries(debtEntries);
 
   return { session, members, dishes, debts };
 }
