@@ -7,7 +7,6 @@ import {
   upsertOrder,
   togglePaid,
   updateTotalBill,
-  deleteOrder,
   updateOrderUnitPrice,
   updateMemberDebt,
 } from "@/lib/actions";
@@ -68,7 +67,7 @@ export default function OrderTable({
   const orderCount = orderMap.size;
   const perPerson =
     session?.totalBill && orderCount > 0
-      ? Math.ceil(session.totalBill / orderCount)
+      ? Math.ceil(session.totalBill / orderCount / 1000) * 1000
       : null;
 
   const dishCounts: Record<string, number> = {};
@@ -115,11 +114,6 @@ export default function OrderTable({
     const value = billInput.trim() === "" ? null : parseFloat(billInput);
     if (value !== null && isNaN(value)) return;
     await updateTotalBill(dateStr, value);
-    startTransition(() => router.refresh());
-  }
-
-  async function handleDeleteOrder(orderId: string) {
-    await deleteOrder(orderId);
     startTransition(() => router.refresh());
   }
 
