@@ -26,6 +26,7 @@ export default function ManagePanel({
   const router = useRouter();
   const { isAdmin } = useAdmin();
   const [, startTransition] = useTransition();
+  const { showError } = useToast();
   const [showPanel, setShowPanel] = useState(false);
   const [memberName, setMemberName] = useState("");
   const [dishName, setDishName] = useState("");
@@ -43,7 +44,7 @@ export default function ManagePanel({
     setMemberName("");
     addMember(name).then(() => {
       startTransition(() => router.refresh());
-    });
+    }).catch(() => showError("Lỗi khi thêm thành viên!"));
   }
 
   function handleAddDish(e: React.FormEvent) {
@@ -54,7 +55,7 @@ export default function ManagePanel({
     setDishPrice("");
     addDish(name, price).then(() => {
       startTransition(() => router.refresh());
-    });
+    }).catch(() => showError("Lỗi khi thêm món ăn!"));
   }
 
   function handleUpdateMember(id: string) {
@@ -62,13 +63,13 @@ export default function ManagePanel({
     setEditingMemberId(null);
     updateMember(id, name).then(() => {
       startTransition(() => router.refresh());
-    });
+    }).catch(() => showError("Lỗi khi cập nhật thành viên!"));
   }
 
   function handleDeleteMember(id: string) {
     deleteMember(id).then(() => {
       startTransition(() => router.refresh());
-    });
+    }).catch(() => showError("Lỗi khi xóa thành viên!"));
   }
 
   function handleUpdateDish(id: string) {
@@ -77,13 +78,13 @@ export default function ManagePanel({
     setEditingDishId(null);
     updateDish(id, name, price).then(() => {
       startTransition(() => router.refresh());
-    });
+    }).catch(() => showError("Lỗi khi cập nhật món ăn!"));
   }
 
   function handleDeleteDish(id: string) {
     deleteDish(id).then(() => {
       startTransition(() => router.refresh());
-    });
+    }).catch(() => showError("Lỗi khi xóa món ăn!"));
   }
 
   return (

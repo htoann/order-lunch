@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition, useRef } from "react";
 import { uploadSessionImage, deleteSessionImage } from "@/lib/actions";
 import { useAdmin } from "./AdminProvider";
+import { useToast } from "./ToastProvider";
 
 type SessionImage = {
   id: string;
@@ -21,6 +22,7 @@ export default function ImagePanel({
   const router = useRouter();
   const { isAdmin } = useAdmin();
   const [, startTransition] = useTransition();
+  const { showError } = useToast();
   const [uploading, setUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -40,7 +42,11 @@ export default function ImagePanel({
         reader.readAsDataURL(file);
       });
 
-      await uploadSessionImage(dateStr, base64, file.name);
+      try {
+        await uploadSessionImage(dateStr, base64, file.name);
+      } catch {
+        showError(`Lỗi khi upload ${file.name}!`);
+      }
     }
     setUploading(false);
     if (fileRef.current) fileRef.current.value = "";
@@ -50,7 +56,7 @@ export default function ImagePanel({
   function handleDelete(imageId: string) {
     deleteSessionImage(imageId).then(() => {
       startTransition(() => router.refresh());
-    });
+    }).catch(() => showError("Lỗi khi xóa hình ảnh!"));
   }
 
   return (
