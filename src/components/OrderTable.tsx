@@ -11,6 +11,7 @@ import {
   updateMemberDebt,
 } from "@/lib/actions";
 import { useAdmin } from "./AdminProvider";
+import { useToast } from "./ToastProvider";
 
 const UNIT_PRICE = 35000;
 
@@ -43,6 +44,7 @@ export default function OrderTable({
   const router = useRouter();
   const { isAdmin } = useAdmin();
   const [, startTransition] = useTransition();
+  const { showError } = useToast();
   const [billInput, setBillInput] = useState(
     session?.totalBill?.toString() ?? ""
   );

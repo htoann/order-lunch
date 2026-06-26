@@ -4,6 +4,7 @@ import ManagePanel from "@/components/ManagePanel";
 import ImagePanel from "@/components/ImagePanel";
 import AdminProvider from "@/components/AdminProvider";
 import AdminButton from "@/components/AdminButton";
+import ToastProvider from "@/components/ToastProvider";
 
 type SearchParams = Promise<{ date?: string }>;
 
@@ -20,6 +21,7 @@ export default async function Home({
   const images = session?.images ?? [];
 
   return (
+    <ToastProvider>
     <AdminProvider>
       <div className="min-h-screen bg-gray-50 p-4 md:p-8">
         <div className="mx-auto max-w-7xl">
@@ -50,5 +52,6 @@ export default async function Home({
         </div>
       </div>
     </AdminProvider>
+    </ToastProvider>
   );
 }
