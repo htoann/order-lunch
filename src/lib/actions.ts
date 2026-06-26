@@ -147,9 +147,8 @@ export async function updateMemberDebt(memberId: string, debt: number | null) {
   revalidatePath("/");
 }
 
-export async function getDebt(memberId: string, beforeDate: Date) {
-  const member = await prisma.member.findUnique({ where: { id: memberId } });
-  if (member?.debtOverride != null) return member.debtOverride;
+export async function getDebt(memberId: string, beforeDate: Date, debtOverride?: number | null) {
+  if (debtOverride != null) return debtOverride;
 
   const result = await prisma.order.aggregate({
     where: {
