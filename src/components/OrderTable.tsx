@@ -144,33 +144,50 @@ export default function OrderTable({
       <div className="mb-4 flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-2">
           <label className="text-sm font-medium text-gray-700">Ngày:</label>
-          <input
-            type="date"
-            value={dateStr}
-            onChange={(e) => router.push(`/?date=${e.target.value}`)}
-            className="rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-800"
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-gray-700">
-            Tổng bill:
-          </label>
-          <input
-            type="number"
-            value={billInput}
-            onChange={(e) => setBillInput(e.target.value)}
-            onBlur={handleUpdateBill}
-            onKeyDown={(e) => e.key === "Enter" && handleUpdateBill()}
-            placeholder="Nhập tổng bill..."
-            className="w-40 rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-800"
-            min="0"
-          />
-          {perPerson && (
-            <span className="text-sm text-gray-500">
-              ÷ {orderCount} = {formatCurrency(perPerson)}/người
-            </span>
+          {isAdmin ? (
+            <input
+              type="date"
+              value={dateStr}
+              onChange={(e) => router.push(`/?date=${e.target.value}`)}
+              className="rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-800"
+            />
+          ) : (
+            <span className="text-sm text-gray-800">{dateStr}</span>
           )}
         </div>
+        {isAdmin ? (
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-gray-700">
+              Tổng bill:
+            </label>
+            <input
+              type="number"
+              value={billInput}
+              onChange={(e) => setBillInput(e.target.value)}
+              onBlur={handleUpdateBill}
+              onKeyDown={(e) => e.key === "Enter" && handleUpdateBill()}
+              placeholder="Nhập tổng bill..."
+              className="w-40 rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-800"
+              min="0"
+            />
+            {perPerson && (
+              <span className="text-sm text-gray-500">
+                ÷ {orderCount} = {formatCurrency(perPerson)}/người
+              </span>
+            )}
+          </div>
+        ) : (
+          session?.totalBill != null && perPerson && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-gray-700">
+                Tổng bill: {formatCurrency(session.totalBill)}
+              </span>
+              <span className="text-sm text-gray-500">
+                ÷ {orderCount} = {formatCurrency(perPerson)}/người
+              </span>
+            </div>
+          )
+        )}
       </div>
 
       {/* Order table */}

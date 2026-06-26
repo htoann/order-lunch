@@ -83,7 +83,7 @@ export default function ManagePanel({
       </button>
 
       {showPanel && (
-        <div className="mt-3 grid gap-4 md:grid-cols-2">
+        <div className={`mt-3 grid gap-4 ${isAdmin ? "md:grid-cols-2" : "md:grid-cols-1 max-w-md"}`}>
           {/* Members section */}
           <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
             <h3 className="mb-3 text-sm font-semibold text-gray-700">
@@ -172,7 +172,7 @@ export default function ManagePanel({
             )}
           </div>
 
-          {/* Dishes section */}
+          {isAdmin && (
           <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
             <h3 className="mb-3 text-sm font-semibold text-gray-700">
               Thêm món ăn
@@ -204,7 +204,7 @@ export default function ManagePanel({
               </button>
             </form>
 
-            {isAdmin && dishes.length > 0 && (
+            {dishes.length > 0 && (
               <div className="mt-3 space-y-1">
                 <h4 className="text-xs font-medium text-gray-500 uppercase">
                   Danh sách ({dishes.length})
@@ -276,6 +276,7 @@ export default function ManagePanel({
               </div>
             )}
           </div>
+          )}
         </div>
       )}
     </div>

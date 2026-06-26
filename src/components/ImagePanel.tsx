@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition, useRef } from "react";
 import { uploadSessionImage, deleteSessionImage } from "@/lib/actions";
+import { useAdmin } from "./AdminProvider";
 
 type SessionImage = {
   id: string;
@@ -18,6 +19,7 @@ export default function ImagePanel({
   images: SessionImage[];
 }) {
   const router = useRouter();
+  const { isAdmin } = useAdmin();
   const [isPending, startTransition] = useTransition();
   const [uploading, setUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -56,21 +58,23 @@ export default function ImagePanel({
         <h3 className="text-sm font-semibold text-gray-700">
           Hình ảnh ({images.length})
         </h3>
-        <label
-          className={`cursor-pointer rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 ${
-            uploading || isPending ? "opacity-50 pointer-events-none" : ""
-          }`}
-        >
-          {uploading ? "Uploading..." : "Upload"}
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            multiple
-            onChange={handleUpload}
-            className="hidden"
-          />
-        </label>
+        {isAdmin && (
+          <label
+            className={`cursor-pointer rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 ${
+              uploading || isPending ? "opacity-50 pointer-events-none" : ""
+            }`}
+          >
+            {uploading ? "Uploading..." : "Upload"}
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleUpload}
+              className="hidden"
+            />
+          </label>
+        )}
       </div>
 
       {images.length === 0 ? (
@@ -93,15 +97,17 @@ export default function ImagePanel({
                 style={{ maxHeight: "200px" }}
                 onClick={() => setPreviewUrl(img.data)}
               />
-              <div className="absolute top-1 right-1 opacity-0 transition-opacity group-hover:opacity-100">
-                <button
-                  onClick={() => handleDelete(img.id)}
-                  className="rounded bg-red-600 px-2 py-0.5 text-xs text-white hover:bg-red-700"
-                  disabled={isPending}
-                >
-                  Xóa
-                </button>
-              </div>
+              {isAdmin && (
+                <div className="absolute top-1 right-1 opacity-0 transition-opacity group-hover:opacity-100">
+                  <button
+                    onClick={() => handleDelete(img.id)}
+                    className="rounded bg-red-600 px-2 py-0.5 text-xs text-white hover:bg-red-700"
+                    disabled={isPending}
+                  >
+                    Xóa
+                  </button>
+                </div>
+              )}
               <div className="px-2 py-1">
                 <p className="truncate text-xs text-gray-500">{img.filename}</p>
               </div>
