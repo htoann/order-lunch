@@ -36,41 +36,53 @@ export default function ManagePanel({
   const [editDishName, setEditDishName] = useState("");
   const [editDishPrice, setEditDishPrice] = useState("");
 
-  async function handleAddMember(e: React.FormEvent) {
+  function handleAddMember(e: React.FormEvent) {
     e.preventDefault();
-    await addMember(memberName);
+    const name = memberName;
     setMemberName("");
-    startTransition(() => router.refresh());
+    addMember(name).then(() => {
+      startTransition(() => router.refresh());
+    });
   }
 
-  async function handleAddDish(e: React.FormEvent) {
+  function handleAddDish(e: React.FormEvent) {
     e.preventDefault();
-    await addDish(dishName, parseFloat(dishPrice));
+    const name = dishName;
+    const price = parseFloat(dishPrice);
     setDishName("");
     setDishPrice("");
-    startTransition(() => router.refresh());
+    addDish(name, price).then(() => {
+      startTransition(() => router.refresh());
+    });
   }
 
-  async function handleUpdateMember(id: string) {
-    await updateMember(id, editMemberName);
+  function handleUpdateMember(id: string) {
+    const name = editMemberName;
     setEditingMemberId(null);
-    startTransition(() => router.refresh());
+    updateMember(id, name).then(() => {
+      startTransition(() => router.refresh());
+    });
   }
 
-  async function handleDeleteMember(id: string) {
-    await deleteMember(id);
-    startTransition(() => router.refresh());
+  function handleDeleteMember(id: string) {
+    deleteMember(id).then(() => {
+      startTransition(() => router.refresh());
+    });
   }
 
-  async function handleUpdateDish(id: string) {
-    await updateDish(id, editDishName, parseFloat(editDishPrice));
+  function handleUpdateDish(id: string) {
+    const name = editDishName;
+    const price = parseFloat(editDishPrice);
     setEditingDishId(null);
-    startTransition(() => router.refresh());
+    updateDish(id, name, price).then(() => {
+      startTransition(() => router.refresh());
+    });
   }
 
-  async function handleDeleteDish(id: string) {
-    await deleteDish(id);
-    startTransition(() => router.refresh());
+  function handleDeleteDish(id: string) {
+    deleteDish(id).then(() => {
+      startTransition(() => router.refresh());
+    });
   }
 
   return (
