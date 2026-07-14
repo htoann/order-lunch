@@ -44,15 +44,18 @@ export default function OrderTable({
   const router = useRouter();
   const { isAdmin } = useAdmin();
   const [, startTransition] = useTransition();
-  const { showError, showSuccess } = useToast();
+  const { promise } = useToast();
   const [billInput, setBillInput] = useState(
     session?.totalBill?.toString() ?? ""
   );
-  const [optimisticPaid, setOptimisticPaid] = useState<Record<string, boolean>>(
-    {}
-  );
+  // Optimistic values keep the server value they were based on. The optimistic
+  // value is shown only until the refreshed server data moves off that base —
+  // clearing it any sooner causes a tick -> untick -> tick flicker.
+  const [optimisticPaid, setOptimisticPaid] = useState<
+    Record<string, { value: boolean; base: boolean }>
+  >({});
   const [optimisticDish, setOptimisticDish] = useState<
-    Record<string, string | null>
+    Record<string, { value: string | null; base: string | null }>
   >({});
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
   const [editPriceValue, setEditPriceValue] = useState("");
@@ -64,6 +67,20 @@ export default function OrderTable({
     for (const order of session.orders) {
       orderMap.set(order.memberId, order);
     }
+  }
+
+  // Show the optimistic value until the refreshed server data diverges from the
+  // base it was captured against; then trust the server.
+  function effectivePaid(memberId: string): boolean {
+    const server = paid[memberId] ?? false;
+    const opt = optimisticPaid[memberId];
+    return opt && opt.base === server ? opt.value : server;
+  }
+
+  function effectiveDish(memberId: string): string | null {
+    const server = orderMap.get(memberId)?.dishId ?? null;
+    const opt = optimisticDish[memberId];
+    return opt && opt.base === server ? opt.value : server;
   }
 
   const orderCount = orderMap.size;
@@ -85,9 +102,7 @@ export default function OrderTable({
     (sum, o) => sum + o.unitPrice,
     0
   );
-  const paidCount = members.filter((m) =>
-    m.id in optimisticPaid ? optimisticPaid[m.id] : (paid[m.id] ?? false)
-  ).length;
+  const paidCount = members.filter((m) => effectivePaid(m.id)).length;
   const totalDebt = Object.values(debts).reduce((sum, d) => sum + d, 0);
 
   const ROW_COLORS = [
@@ -95,67 +110,106 @@ export default function OrderTable({
     "#ede9fe", "#ccfbf1", "#fee2e2", "#e0e7ff",
   ];
 
-  function handleDishChange(memberId: string, dishIdStr: string) {
+  function clearOptimisticDish(memberId: string) {
+    setOptimisticDish((prev) => {
+      const next = { ...prev };
+      delete next[memberId];
+      return next;
+    });
+  }
+
+  function clearOptimisticPaid(memberId: string) {
+    setOptimisticPaid((prev) => {
+      const next = { ...prev };
+      delete next[memberId];
+      return next;
+    });
+  }
+
+  async function handleDishChange(memberId: string, dishIdStr: string) {
     const dishId = dishIdStr === "" ? null : dishIdStr;
-    setOptimisticDish((prev) => ({ ...prev, [memberId]: dishId }));
+    const base = orderMap.get(memberId)?.dishId ?? null;
+    setOptimisticDish((prev) => ({ ...prev, [memberId]: { value: dishId, base } }));
 
-    getOrCreateSession(dateStr).then((sess) => {
-      upsertOrder(sess.id, memberId, dishId).then(() => {
-        startTransition(() => {
-          router.refresh();
-          setOptimisticDish((prev) => {
-            const next = { ...prev };
-            delete next[memberId];
-            return next;
-          });
-        });
-      }).catch(() => showError("Lỗi khi cập nhật món!"));
-    }).catch(() => showError("Lỗi kết nối server!"));
-  }
-
-  function handleTogglePaid(memberId: string, currentPaid: boolean) {
-    setOptimisticPaid((prev) => ({ ...prev, [memberId]: !currentPaid }));
-
-    setMemberPaid(memberId, dateStr, !currentPaid).then(() => {
-      startTransition(() => {
-        router.refresh();
-        setOptimisticPaid((prev) => {
-          const next = { ...prev };
-          delete next[memberId];
-          return next;
-        });
+    try {
+      const sess = await getOrCreateSession(dateStr);
+      await promise(upsertOrder(sess.id, memberId, dishId), {
+        loading: "Đang lưu món...",
+        success: dishId ? "Đã cập nhật món" : "Đã bỏ chọn món",
+        error: "Lỗi khi cập nhật món!",
       });
-    }).catch(() => showError("Lỗi khi cập nhật thanh toán!"));
+      startTransition(() => router.refresh());
+    } catch {
+      clearOptimisticDish(memberId); // revert on failure
+    }
   }
 
-  function handleUpdateBill() {
+  async function handleTogglePaid(memberId: string, currentPaid: boolean) {
+    const base = paid[memberId] ?? false;
+    setOptimisticPaid((prev) => ({
+      ...prev,
+      [memberId]: { value: !currentPaid, base },
+    }));
+
+    try {
+      await promise(setMemberPaid(memberId, dateStr, !currentPaid), {
+        loading: "Đang lưu...",
+        success: !currentPaid ? "Đã đánh dấu đã thanh toán" : "Đã bỏ thanh toán",
+        error: "Lỗi khi cập nhật thanh toán!",
+      });
+      startTransition(() => router.refresh());
+    } catch {
+      clearOptimisticPaid(memberId); // revert on failure
+    }
+  }
+
+  async function handleUpdateBill() {
     const value = billInput.trim() === "" ? null : parseFloat(billInput);
     if (value !== null && isNaN(value)) return;
-    updateTotalBill(dateStr, value).then(() => {
-      showSuccess("Đã cập nhật tổng bill");
+    if (value === (session?.totalBill ?? null)) return; // no change
+    try {
+      await promise(updateTotalBill(dateStr, value), {
+        loading: "Đang lưu...",
+        success: "Đã cập nhật tổng bill",
+        error: "Lỗi khi cập nhật tổng bill!",
+      });
       startTransition(() => router.refresh());
-    }).catch(() => showError("Lỗi khi cập nhật tổng bill!"));
+    } catch {
+      // Error toast already shown.
+    }
   }
 
-  function handleUpdateUnitPrice(orderId: string) {
+  async function handleUpdateUnitPrice(orderId: string) {
     const value = parseFloat(editPriceValue);
     if (isNaN(value) || value < 0) return;
     setEditingPriceId(null);
-    updateOrderUnitPrice(orderId, value).then(() => {
-      showSuccess("Đã cập nhật đơn giá");
+    try {
+      await promise(updateOrderUnitPrice(orderId, value), {
+        loading: "Đang lưu...",
+        success: "Đã cập nhật đơn giá",
+        error: "Lỗi khi cập nhật đơn giá!",
+      });
       startTransition(() => router.refresh());
-    }).catch(() => showError("Lỗi khi cập nhật đơn giá!"));
+    } catch {
+      // Error toast already shown.
+    }
   }
 
-  function handleUpdateDebt(memberId: string) {
+  async function handleUpdateDebt(memberId: string) {
     const trimmed = editDebtValue.trim();
     const value = trimmed === "" ? null : parseFloat(trimmed);
     if (value !== null && (isNaN(value) || value < 0)) return;
     setEditingDebtId(null);
-    updateMemberDebt(memberId, value).then(() => {
-      showSuccess("Đã cập nhật nợ");
+    try {
+      await promise(updateMemberDebt(memberId, value), {
+        loading: "Đang lưu...",
+        success: "Đã cập nhật nợ",
+        error: "Lỗi khi cập nhật nợ!",
+      });
       startTransition(() => router.refresh());
-    }).catch(() => showError("Lỗi khi cập nhật nợ!"));
+    } catch {
+      // Error toast already shown.
+    }
   }
 
   function formatCurrency(amount: number) {
@@ -245,16 +299,10 @@ export default function OrderTable({
               const order = orderMap.get(member.id);
               const debt = debts[member.id] || 0;
 
-              const displayDishId =
-                member.id in optimisticDish
-                  ? optimisticDish[member.id]
-                  : (order?.dishId ?? null);
+              const displayDishId = effectiveDish(member.id);
               const hasOrder = displayDishId !== null;
 
-              const paidValue =
-                member.id in optimisticPaid
-                  ? optimisticPaid[member.id]
-                  : (paid[member.id] ?? false);
+              const paidValue = effectivePaid(member.id);
 
               // Settled today: still show the amount, but struck through.
               // From the next day the debt reads as 0 (see getDebt).

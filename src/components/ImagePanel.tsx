@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition, useRef } from "react";
+import { useState, useTransition, useRef, useEffect, useCallback } from "react";
 import { uploadSessionImage, deleteSessionImage } from "@/lib/actions";
 import { useAdmin } from "./AdminProvider";
 import { useToast } from "./ToastProvider";
@@ -24,37 +24,90 @@ export default function ImagePanel({
   const router = useRouter();
   const { isAdmin } = useAdmin();
   const [, startTransition] = useTransition();
-  const { showError, showSuccess } = useToast();
+  const { promise, showInfo } = useToast();
   const { confirm } = useConfirm();
   const [uploading, setUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
+  const uploadFiles = useCallback(
+    async (files: File[]) => {
+      const images = files.filter(
+        (f) => f.type.startsWith("image/") && f.size <= 5 * 1024 * 1024
+      );
+      if (images.length === 0) return;
 
-    setUploading(true);
-    for (const file of Array.from(files)) {
-      if (!file.type.startsWith("image/")) continue;
-      if (file.size > 5 * 1024 * 1024) continue;
-
-      const base64 = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.readAsDataURL(file);
-      });
+      setUploading(true);
+      const uploadAll = (async () => {
+        for (const file of images) {
+          const base64 = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.readAsDataURL(file);
+          });
+          // Pasted images often have no filename.
+          const name =
+            file.name && file.name.trim() !== ""
+              ? file.name
+              : `paste-${Date.now()}.png`;
+          await uploadSessionImage(dateStr, base64, name);
+        }
+      })();
 
       try {
-        await uploadSessionImage(dateStr, base64, file.name);
+        await promise(uploadAll, {
+          loading: "Đang tải ảnh lên...",
+          success: "Đã tải ảnh lên",
+          error: "Lỗi khi tải ảnh lên!",
+        });
       } catch {
-        showError(`Lỗi khi upload ${file.name}!`);
+        // Error toast already shown.
+      } finally {
+        setUploading(false);
+        if (fileRef.current) fileRef.current.value = "";
+        startTransition(() => router.refresh());
       }
-    }
-    setUploading(false);
-    if (fileRef.current) fileRef.current.value = "";
-    startTransition(() => router.refresh());
+    },
+    [dateStr, promise, router]
+  );
+
+  function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    uploadFiles(Array.from(files));
   }
+
+  // Paste images anywhere on the page with Ctrl+V.
+  useEffect(() => {
+    function onPaste(e: ClipboardEvent) {
+      const dt = e.clipboardData;
+      if (!dt) return;
+
+      const files: File[] = [];
+      for (const item of Array.from(dt.items ?? [])) {
+        if (item.kind === "file" && item.type.startsWith("image/")) {
+          const f = item.getAsFile();
+          if (f) files.push(f);
+        }
+      }
+      // Fallback: some browsers expose pasted images via files only.
+      if (files.length === 0) {
+        for (const f of Array.from(dt.files ?? [])) {
+          if (f.type.startsWith("image/")) files.push(f);
+        }
+      }
+      if (files.length === 0) return;
+
+      e.preventDefault();
+      if (!isAdmin) {
+        showInfo("Đăng nhập admin để tải ảnh lên");
+        return;
+      }
+      uploadFiles(files);
+    }
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+  }, [isAdmin, uploadFiles, showInfo]);
 
   async function handleDelete(imageId: string) {
     const ok = await confirm({
@@ -62,10 +115,16 @@ export default function ImagePanel({
       message: "Bạn có chắc muốn xóa hình ảnh này?",
     });
     if (!ok) return;
-    deleteSessionImage(imageId).then(() => {
-      showSuccess("Đã xóa hình ảnh");
+    try {
+      await promise(deleteSessionImage(imageId), {
+        loading: "Đang xóa...",
+        success: "Đã xóa hình ảnh",
+        error: "Lỗi khi xóa hình ảnh!",
+      });
       startTransition(() => router.refresh());
-    }).catch(() => showError("Lỗi khi xóa hình ảnh!"));
+    } catch {
+      // Error toast already shown.
+    }
   }
 
   return (
@@ -77,6 +136,7 @@ export default function ImagePanel({
         </h3>
         {isAdmin && (
           <label
+            title="Tải lên hoặc dán ảnh (Ctrl+V)"
             className={`inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-blue-700 ${
               uploading ? "opacity-50 pointer-events-none" : ""
             }`}
@@ -98,9 +158,12 @@ export default function ImagePanel({
       {images.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 p-8">
           <ImageIcon className="h-8 w-8 text-gray-300" />
-          <p className="text-center text-sm text-gray-400">
-            Chưa có hình ảnh
-          </p>
+          <p className="text-center text-sm text-gray-400">Chưa có hình ảnh</p>
+          {isAdmin && (
+            <p className="text-center text-xs text-gray-400">
+              Dán ảnh (Ctrl+V) hoặc bấm “Tải lên”
+            </p>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 overflow-y-auto">
@@ -112,8 +175,7 @@ export default function ImagePanel({
               <img
                 src={img.data}
                 alt={img.filename}
-                className="w-full cursor-pointer object-cover"
-                style={{ maxHeight: "200px" }}
+                className="h-auto w-full cursor-pointer bg-gray-50 object-contain"
                 onClick={() => setPreviewUrl(img.data)}
               />
               {isAdmin && (

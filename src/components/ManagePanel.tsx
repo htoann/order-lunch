@@ -28,7 +28,7 @@ export default function ManagePanel({
   const router = useRouter();
   const { isAdmin } = useAdmin();
   const [, startTransition] = useTransition();
-  const { showError, showSuccess } = useToast();
+  const { promise } = useToast();
   const { confirm } = useConfirm();
   const [showPanel, setShowPanel] = useState(false);
   const [memberName, setMemberName] = useState("");
@@ -39,33 +39,33 @@ export default function ManagePanel({
   const [editingDishId, setEditingDishId] = useState<string | null>(null);
   const [editDishName, setEditDishName] = useState("");
 
-  function handleAddMember(e: React.FormEvent) {
+  async function save(p: Promise<unknown>, success: string, error: string) {
+    try {
+      await promise(p, { loading: "Đang lưu...", success, error });
+      startTransition(() => router.refresh());
+    } catch {
+      // Error toast already shown.
+    }
+  }
+
+  async function handleAddMember(e: React.FormEvent) {
     e.preventDefault();
     const name = memberName;
     setMemberName("");
-    addMember(name).then(() => {
-      showSuccess("Đã thêm thành viên");
-      startTransition(() => router.refresh());
-    }).catch(() => showError("Lỗi khi thêm thành viên!"));
+    await save(addMember(name), "Đã thêm thành viên", "Lỗi khi thêm thành viên!");
   }
 
-  function handleAddDish(e: React.FormEvent) {
+  async function handleAddDish(e: React.FormEvent) {
     e.preventDefault();
     const name = dishName;
     setDishName("");
-    addDish(name).then(() => {
-      showSuccess("Đã thêm món ăn");
-      startTransition(() => router.refresh());
-    }).catch(() => showError("Lỗi khi thêm món ăn!"));
+    await save(addDish(name), "Đã thêm món ăn", "Lỗi khi thêm món ăn!");
   }
 
-  function handleUpdateMember(id: string) {
+  async function handleUpdateMember(id: string) {
     const name = editMemberName;
     setEditingMemberId(null);
-    updateMember(id, name).then(() => {
-      showSuccess("Đã cập nhật thành viên");
-      startTransition(() => router.refresh());
-    }).catch(() => showError("Lỗi khi cập nhật thành viên!"));
+    await save(updateMember(id, name), "Đã cập nhật thành viên", "Lỗi khi cập nhật thành viên!");
   }
 
   async function handleDeleteMember(id: string, name: string) {
@@ -74,19 +74,13 @@ export default function ManagePanel({
       message: `Bạn có chắc muốn xóa "${name}"? Thành viên sẽ không còn hiển thị trong danh sách.`,
     });
     if (!ok) return;
-    deleteMember(id).then(() => {
-      showSuccess("Đã xóa thành viên");
-      startTransition(() => router.refresh());
-    }).catch(() => showError("Lỗi khi xóa thành viên!"));
+    await save(deleteMember(id), "Đã xóa thành viên", "Lỗi khi xóa thành viên!");
   }
 
-  function handleUpdateDish(id: string) {
+  async function handleUpdateDish(id: string) {
     const name = editDishName;
     setEditingDishId(null);
-    updateDish(id, name).then(() => {
-      showSuccess("Đã cập nhật món ăn");
-      startTransition(() => router.refresh());
-    }).catch(() => showError("Lỗi khi cập nhật món ăn!"));
+    await save(updateDish(id, name), "Đã cập nhật món ăn", "Lỗi khi cập nhật món ăn!");
   }
 
   async function handleDeleteDish(id: string, name: string) {
@@ -95,10 +89,7 @@ export default function ManagePanel({
       message: `Bạn có chắc muốn xóa món "${name}"?`,
     });
     if (!ok) return;
-    deleteDish(id).then(() => {
-      showSuccess("Đã xóa món ăn");
-      startTransition(() => router.refresh());
-    }).catch(() => showError("Lỗi khi xóa món ăn!"));
+    await save(deleteDish(id), "Đã xóa món ăn", "Lỗi khi xóa món ăn!");
   }
 
   return (
