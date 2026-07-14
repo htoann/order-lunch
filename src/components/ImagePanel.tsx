@@ -5,6 +5,8 @@ import { useState, useTransition, useRef } from "react";
 import { uploadSessionImage, deleteSessionImage } from "@/lib/actions";
 import { useAdmin } from "./AdminProvider";
 import { useToast } from "./ToastProvider";
+import { useConfirm } from "./ConfirmProvider";
+import { UploadIcon, TrashIcon, ImageIcon } from "./icons";
 
 type SessionImage = {
   id: string;
@@ -22,7 +24,8 @@ export default function ImagePanel({
   const router = useRouter();
   const { isAdmin } = useAdmin();
   const [, startTransition] = useTransition();
-  const { showError } = useToast();
+  const { showError, showSuccess } = useToast();
+  const { confirm } = useConfirm();
   const [uploading, setUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -53,8 +56,14 @@ export default function ImagePanel({
     startTransition(() => router.refresh());
   }
 
-  function handleDelete(imageId: string) {
+  async function handleDelete(imageId: string) {
+    const ok = await confirm({
+      title: "Xóa hình ảnh",
+      message: "Bạn có chắc muốn xóa hình ảnh này?",
+    });
+    if (!ok) return;
     deleteSessionImage(imageId).then(() => {
+      showSuccess("Đã xóa hình ảnh");
       startTransition(() => router.refresh());
     }).catch(() => showError("Lỗi khi xóa hình ảnh!"));
   }
@@ -62,16 +71,18 @@ export default function ImagePanel({
   return (
     <div className="flex h-full flex-col">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-700">
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+          <ImageIcon className="h-4 w-4 text-gray-400" />
           Hình ảnh ({images.length})
         </h3>
         {isAdmin && (
           <label
-            className={`cursor-pointer rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 ${
+            className={`inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-blue-700 ${
               uploading ? "opacity-50 pointer-events-none" : ""
             }`}
           >
-            {uploading ? "Uploading..." : "Upload"}
+            <UploadIcon className="h-4 w-4" />
+            {uploading ? "Đang tải..." : "Tải lên"}
             <input
               ref={fileRef}
               type="file"
@@ -85,7 +96,8 @@ export default function ImagePanel({
       </div>
 
       {images.length === 0 ? (
-        <div className="flex flex-1 items-center justify-center rounded-lg border-2 border-dashed border-gray-200 p-6">
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 p-8">
+          <ImageIcon className="h-8 w-8 text-gray-300" />
           <p className="text-center text-sm text-gray-400">
             Chưa có hình ảnh
           </p>
@@ -105,14 +117,13 @@ export default function ImagePanel({
                 onClick={() => setPreviewUrl(img.data)}
               />
               {isAdmin && (
-                <div className="absolute top-1 right-1 opacity-0 transition-opacity group-hover:opacity-100">
-                  <button
-                    onClick={() => handleDelete(img.id)}
-                    className="rounded bg-red-600 px-2 py-0.5 text-xs text-white hover:bg-red-700"
-                  >
-                    Xóa
-                  </button>
-                </div>
+                <button
+                  onClick={() => handleDelete(img.id)}
+                  title="Xóa hình"
+                  className="absolute top-2 right-2 rounded-lg bg-black/50 p-1.5 text-white opacity-0 backdrop-blur-sm transition-all hover:bg-red-600 group-hover:opacity-100"
+                >
+                  <TrashIcon className="h-4 w-4" />
+                </button>
               )}
               <div className="px-2 py-1">
                 <p className="truncate text-xs text-gray-500">{img.filename}</p>

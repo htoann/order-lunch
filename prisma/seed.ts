@@ -17,18 +17,12 @@ async function main() {
     });
   }
 
-  const dishes = [
-    { name: "Món 1", price: 33000 },
-    { name: "Món 2", price: 33000 },
-    { name: "Món 3", price: 33000 },
-  ];
+  const dishes = ["Món 1", "Món 2", "Món 3"];
 
-  for (const dish of dishes) {
-    const existing = await prisma.dish.findFirst({
-      where: { name: dish.name },
-    });
+  for (const name of dishes) {
+    const existing = await prisma.dish.findFirst({ where: { name } });
     if (!existing) {
-      await prisma.dish.create({ data: dish });
+      await prisma.dish.create({ data: { name } });
     }
   }
 

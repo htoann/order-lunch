@@ -12,9 +12,11 @@ import {
 } from "@/lib/actions";
 import { useAdmin } from "./AdminProvider";
 import { useToast } from "./ToastProvider";
+import { useConfirm } from "./ConfirmProvider";
+import { PencilIcon, TrashIcon, CheckIcon, XIcon, PlusIcon } from "./icons";
 
 type Member = { id: string; name: string };
-type Dish = { id: string; name: string; price: number };
+type Dish = { id: string; name: string };
 
 export default function ManagePanel({
   members,
@@ -26,23 +28,23 @@ export default function ManagePanel({
   const router = useRouter();
   const { isAdmin } = useAdmin();
   const [, startTransition] = useTransition();
-  const { showError } = useToast();
+  const { showError, showSuccess } = useToast();
+  const { confirm } = useConfirm();
   const [showPanel, setShowPanel] = useState(false);
   const [memberName, setMemberName] = useState("");
   const [dishName, setDishName] = useState("");
-  const [dishPrice, setDishPrice] = useState("");
 
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [editMemberName, setEditMemberName] = useState("");
   const [editingDishId, setEditingDishId] = useState<string | null>(null);
   const [editDishName, setEditDishName] = useState("");
-  const [editDishPrice, setEditDishPrice] = useState("");
 
   function handleAddMember(e: React.FormEvent) {
     e.preventDefault();
     const name = memberName;
     setMemberName("");
     addMember(name).then(() => {
+      showSuccess("Đã thêm thành viên");
       startTransition(() => router.refresh());
     }).catch(() => showError("Lỗi khi thêm thành viên!"));
   }
@@ -50,10 +52,9 @@ export default function ManagePanel({
   function handleAddDish(e: React.FormEvent) {
     e.preventDefault();
     const name = dishName;
-    const price = parseFloat(dishPrice) * 1000;
     setDishName("");
-    setDishPrice("");
-    addDish(name, price).then(() => {
+    addDish(name).then(() => {
+      showSuccess("Đã thêm món ăn");
       startTransition(() => router.refresh());
     }).catch(() => showError("Lỗi khi thêm món ăn!"));
   }
@@ -62,27 +63,40 @@ export default function ManagePanel({
     const name = editMemberName;
     setEditingMemberId(null);
     updateMember(id, name).then(() => {
+      showSuccess("Đã cập nhật thành viên");
       startTransition(() => router.refresh());
     }).catch(() => showError("Lỗi khi cập nhật thành viên!"));
   }
 
-  function handleDeleteMember(id: string) {
+  async function handleDeleteMember(id: string, name: string) {
+    const ok = await confirm({
+      title: "Xóa thành viên",
+      message: `Bạn có chắc muốn xóa "${name}"? Thành viên sẽ không còn hiển thị trong danh sách.`,
+    });
+    if (!ok) return;
     deleteMember(id).then(() => {
+      showSuccess("Đã xóa thành viên");
       startTransition(() => router.refresh());
     }).catch(() => showError("Lỗi khi xóa thành viên!"));
   }
 
   function handleUpdateDish(id: string) {
     const name = editDishName;
-    const price = parseFloat(editDishPrice) * 1000;
     setEditingDishId(null);
-    updateDish(id, name, price).then(() => {
+    updateDish(id, name).then(() => {
+      showSuccess("Đã cập nhật món ăn");
       startTransition(() => router.refresh());
     }).catch(() => showError("Lỗi khi cập nhật món ăn!"));
   }
 
-  function handleDeleteDish(id: string) {
+  async function handleDeleteDish(id: string, name: string) {
+    const ok = await confirm({
+      title: "Xóa món ăn",
+      message: `Bạn có chắc muốn xóa món "${name}"?`,
+    });
+    if (!ok) return;
     deleteDish(id).then(() => {
+      showSuccess("Đã xóa món ăn");
       startTransition(() => router.refresh());
     }).catch(() => showError("Lỗi khi xóa món ăn!"));
   }
@@ -91,17 +105,18 @@ export default function ManagePanel({
     <div className="mt-6">
       <button
         onClick={() => setShowPanel(!showPanel)}
-        className="text-sm font-medium text-blue-600 hover:text-blue-800"
+        className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
       >
+        <span className="text-base">⚙️</span>
         {showPanel ? "Ẩn quản lý" : "Quản lý thành viên & món ăn"}
       </button>
 
       {showPanel && (
-        <div className={`mt-3 grid gap-4 ${isAdmin ? "md:grid-cols-2" : "md:grid-cols-1 max-w-md"}`}>
+        <div className={`mt-4 grid gap-4 ${isAdmin ? "md:grid-cols-2" : "md:grid-cols-1 max-w-md"}`}>
           {/* Members section */}
-          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-            <h3 className="mb-3 text-sm font-semibold text-gray-700">
-              Thêm thành viên
+          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <h3 className="mb-3 text-sm font-semibold text-gray-800">
+              Thành viên
             </h3>
             <form onSubmit={handleAddMember} className="flex gap-2">
               <input
@@ -109,27 +124,27 @@ export default function ManagePanel({
                 value={memberName}
                 onChange={(e) => setMemberName(e.target.value)}
                 placeholder="Tên thành viên"
-                className="flex-1 rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-800"
+                className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
                 required
               />
               <button
                 type="submit"
-
-                className="rounded bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700 disabled:opacity-50"
               >
+                <PlusIcon className="h-4 w-4" />
                 Thêm
               </button>
             </form>
 
             {isAdmin && members.length > 0 && (
-              <div className="mt-3 space-y-1">
-                <h4 className="text-xs font-medium text-gray-500 uppercase">
+              <div className="mt-4 space-y-0.5">
+                <h4 className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-400">
                   Danh sách ({members.length})
                 </h4>
                 {members.map((m) => (
                   <div
                     key={m.id}
-                    className="flex items-center gap-2 rounded px-2 py-1 hover:bg-gray-50"
+                    className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-gray-50"
                   >
                     {editingMemberId === m.id ? (
                       <>
@@ -137,29 +152,31 @@ export default function ManagePanel({
                           type="text"
                           value={editMemberName}
                           onChange={(e) => setEditMemberName(e.target.value)}
-                          onKeyDown={(e) =>
-                            e.key === "Enter" && handleUpdateMember(m.id)
-                          }
-                          className="flex-1 rounded border border-gray-300 px-2 py-0.5 text-sm text-gray-800"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleUpdateMember(m.id);
+                            if (e.key === "Escape") setEditingMemberId(null);
+                          }}
+                          className="flex-1 rounded-lg border border-gray-300 px-2 py-1 text-sm text-gray-800 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
                           autoFocus
                         />
                         <button
                           onClick={() => handleUpdateMember(m.id)}
-                          className="text-xs text-green-600 hover:text-green-800"
-          
+                          title="Lưu"
+                          className="rounded-lg p-2 text-green-600 transition-colors hover:bg-green-50"
                         >
-                          Lưu
+                          <CheckIcon className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => setEditingMemberId(null)}
-                          className="text-xs text-gray-500 hover:text-gray-700"
+                          title="Hủy"
+                          className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
                         >
-                          Hủy
+                          <XIcon className="h-4 w-4" />
                         </button>
                       </>
                     ) : (
                       <>
-                        <span className="flex-1 text-sm text-gray-800">
+                        <span className="flex-1 truncate text-sm text-gray-800">
                           {m.name}
                         </span>
                         <button
@@ -167,16 +184,17 @@ export default function ManagePanel({
                             setEditingMemberId(m.id);
                             setEditMemberName(m.name);
                           }}
-                          className="text-xs text-blue-600 hover:text-blue-800"
+                          title="Sửa"
+                          className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
                         >
-                          Sửa
+                          <PencilIcon className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => handleDeleteMember(m.id)}
-                          className="text-xs text-red-600 hover:text-red-800"
-          
+                          onClick={() => handleDeleteMember(m.id, m.name)}
+                          title="Xóa"
+                          className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
                         >
-                          Xóa
+                          <TrashIcon className="h-4 w-4" />
                         </button>
                       </>
                     )}
@@ -187,9 +205,9 @@ export default function ManagePanel({
           </div>
 
           {isAdmin && (
-          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-            <h3 className="mb-3 text-sm font-semibold text-gray-700">
-              Thêm món ăn
+          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <h3 className="mb-3 text-sm font-semibold text-gray-800">
+              Món ăn
             </h3>
             <form onSubmit={handleAddDish} className="flex gap-2">
               <input
@@ -197,42 +215,27 @@ export default function ManagePanel({
                 value={dishName}
                 onChange={(e) => setDishName(e.target.value)}
                 placeholder="Tên món"
-                className="flex-1 rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-800"
+                className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
                 required
               />
-              <div className="relative w-28">
-                <input
-                  type="number"
-                  value={dishPrice}
-                  onChange={(e) => setDishPrice(e.target.value)}
-                  placeholder="Giá"
-                  className="w-full rounded border border-gray-300 py-1.5 pl-3 pr-9 text-right text-sm text-gray-800"
-                  required
-                  min="0"
-                  step="1"
-                />
-                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
-                  000
-                </span>
-              </div>
               <button
                 type="submit"
-
-                className="rounded bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700 disabled:opacity-50"
               >
+                <PlusIcon className="h-4 w-4" />
                 Thêm
               </button>
             </form>
 
             {dishes.length > 0 && (
-              <div className="mt-3 space-y-1">
-                <h4 className="text-xs font-medium text-gray-500 uppercase">
+              <div className="mt-4 space-y-0.5">
+                <h4 className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-400">
                   Danh sách ({dishes.length})
                 </h4>
                 {dishes.map((d) => (
                   <div
                     key={d.id}
-                    className="flex items-center gap-2 rounded px-2 py-1 hover:bg-gray-50"
+                    className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-gray-50"
                   >
                     {editingDishId === d.id ? (
                       <>
@@ -240,60 +243,49 @@ export default function ManagePanel({
                           type="text"
                           value={editDishName}
                           onChange={(e) => setEditDishName(e.target.value)}
-                          className="flex-1 rounded border border-gray-300 px-2 py-0.5 text-sm text-gray-800"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleUpdateDish(d.id);
+                            if (e.key === "Escape") setEditingDishId(null);
+                          }}
+                          className="flex-1 rounded-lg border border-gray-300 px-2 py-1 text-sm text-gray-800 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
                           autoFocus
                         />
-                        <div className="relative w-24">
-                          <input
-                            type="number"
-                            value={editDishPrice}
-                            onChange={(e) => setEditDishPrice(e.target.value)}
-                            className="w-full rounded border border-gray-300 py-0.5 pl-2 pr-8 text-right text-sm text-gray-800"
-                            min="0"
-                            step="1"
-                          />
-                          <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-sm text-gray-500">
-                            000
-                          </span>
-                        </div>
                         <button
                           onClick={() => handleUpdateDish(d.id)}
-                          className="text-xs text-green-600 hover:text-green-800"
-          
+                          title="Lưu"
+                          className="rounded-lg p-2 text-green-600 transition-colors hover:bg-green-50"
                         >
-                          Lưu
+                          <CheckIcon className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => setEditingDishId(null)}
-                          className="text-xs text-gray-500 hover:text-gray-700"
+                          title="Hủy"
+                          className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
                         >
-                          Hủy
+                          <XIcon className="h-4 w-4" />
                         </button>
                       </>
                     ) : (
                       <>
-                        <span className="flex-1 text-sm text-gray-800">
+                        <span className="flex-1 truncate text-sm text-gray-800">
                           {d.name}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {new Intl.NumberFormat("vi-VN").format(d.price)}đ
                         </span>
                         <button
                           onClick={() => {
                             setEditingDishId(d.id);
                             setEditDishName(d.name);
-                            setEditDishPrice((d.price / 1000).toString());
                           }}
-                          className="text-xs text-blue-600 hover:text-blue-800"
+                          title="Sửa"
+                          className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
                         >
-                          Sửa
+                          <PencilIcon className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => handleDeleteDish(d.id)}
-                          className="text-xs text-red-600 hover:text-red-800"
-          
+                          onClick={() => handleDeleteDish(d.id, d.name)}
+                          title="Xóa"
+                          className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
                         >
-                          Xóa
+                          <TrashIcon className="h-4 w-4" />
                         </button>
                       </>
                     )}

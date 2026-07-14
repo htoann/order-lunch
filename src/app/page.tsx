@@ -5,6 +5,7 @@ import ImagePanel from "@/components/ImagePanel";
 import AdminProvider from "@/components/AdminProvider";
 import AdminButton from "@/components/AdminButton";
 import ToastProvider from "@/components/ToastProvider";
+import ConfirmProvider from "@/components/ConfirmProvider";
 
 type SearchParams = Promise<{ date?: string }>;
 
@@ -22,13 +23,24 @@ export default async function Home({
 
   return (
     <ToastProvider>
+    <ConfirmProvider>
     <AdminProvider>
       <div className="min-h-screen bg-gray-50 p-4 md:p-8">
         <div className="mx-auto max-w-7xl">
-          <div className="mb-6 flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-gray-800">
-              Order Lunch Tracker
-            </h1>
+          <div className="mb-6 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-xl shadow-sm">
+                🍱
+              </span>
+              <div>
+                <h1 className="text-xl font-bold leading-tight text-gray-900 sm:text-2xl">
+                  Order Lunch Tracker
+                </h1>
+                <p className="hidden text-sm text-gray-500 sm:block">
+                  Theo dõi đặt cơm trưa của nhóm
+                </p>
+              </div>
+            </div>
             <AdminButton />
           </div>
 
@@ -52,6 +64,7 @@ export default async function Home({
         </div>
       </div>
     </AdminProvider>
+    </ConfirmProvider>
     </ToastProvider>
   );
 }

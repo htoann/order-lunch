@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useCallback } from "react";
 import { verifyAdminPassword } from "@/lib/actions";
+import { LockIcon } from "./icons";
 
 type AdminContextType = {
   isAdmin: boolean;
@@ -58,16 +59,21 @@ export default function AdminProvider({
 
       {modalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 animate-fade-in"
           onClick={() => setModalOpen(false)}
         >
           <div
-            className="w-80 rounded-lg bg-white p-6 shadow-xl"
+            className="w-full max-w-sm animate-pop rounded-xl bg-white p-6 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="mb-4 text-lg font-semibold text-gray-800">
-              Đăng nhập Admin
-            </h2>
+            <div className="mb-4 flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-blue-600">
+                <LockIcon className="h-5 w-5" />
+              </span>
+              <h2 className="text-lg font-semibold text-gray-900">
+                Đăng nhập Admin
+              </h2>
+            </div>
             <form onSubmit={handleSubmit}>
               <input
                 type="password"
@@ -77,23 +83,27 @@ export default function AdminProvider({
                   setError("");
                 }}
                 placeholder="Nhập mật khẩu..."
-                className="mb-3 w-full rounded border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:border-blue-500 focus:outline-none"
+                className={`mb-2 w-full rounded-lg border px-3 py-2 text-sm text-gray-800 transition-colors focus:outline-none focus:ring-2 ${
+                  error
+                    ? "border-red-400 focus:border-red-500 focus:ring-red-100"
+                    : "border-gray-300 focus:border-blue-500 focus:ring-blue-100"
+                }`}
                 autoFocus
               />
               {error && (
-                <p className="mb-3 text-sm text-red-600">{error}</p>
+                <p className="mb-2 text-sm text-red-600">{error}</p>
               )}
-              <div className="flex gap-2">
+              <div className="mt-3 flex gap-2">
                 <button
                   type="submit"
-                  className="flex-1 rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                  className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700"
                 >
                   Đăng nhập
                 </button>
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="flex-1 rounded border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
                 >
                   Hủy
                 </button>

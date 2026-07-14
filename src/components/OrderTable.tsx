@@ -13,10 +13,8 @@ import {
 import { useAdmin } from "./AdminProvider";
 import { useToast } from "./ToastProvider";
 
-const UNIT_PRICE = 35000;
-
 type Member = { id: string; name: string };
-type Dish = { id: string; name: string; price: number };
+type Dish = { id: string; name: string };
 type Order = {
   id: string;
   memberId: string;
@@ -44,7 +42,7 @@ export default function OrderTable({
   const router = useRouter();
   const { isAdmin } = useAdmin();
   const [, startTransition] = useTransition();
-  const { showError } = useToast();
+  const { showError, showSuccess } = useToast();
   const [billInput, setBillInput] = useState(
     session?.totalBill?.toString() ?? ""
   );
@@ -69,7 +67,7 @@ export default function OrderTable({
   const orderCount = orderMap.size;
   const perPerson =
     session?.totalBill && orderCount > 0
-      ? Math.ceil(session.totalBill / orderCount / 1000) * 1000
+      ? Math.ceil(session.totalBill / orderCount)
       : null;
 
   const dishCounts: Record<string, number> = {};
@@ -81,6 +79,12 @@ export default function OrderTable({
     .map((d) => ({ id: d.id, name: d.name, count: dishCounts[d.id] }));
 
   const totalThanhTien = perPerson ? perPerson * orderCount : 0;
+  const totalDonGia = Array.from(orderMap.values()).reduce(
+    (sum, o) => sum + o.unitPrice,
+    0
+  );
+  const paidCount = Array.from(orderMap.values()).filter((o) => o.paid).length;
+  const totalDebt = Object.values(debts).reduce((sum, d) => sum + d, 0);
 
   const ROW_COLORS = [
     "#dbeafe", "#fce7f3", "#d1fae5", "#fef3c7",
@@ -124,6 +128,7 @@ export default function OrderTable({
     const value = billInput.trim() === "" ? null : parseFloat(billInput);
     if (value !== null && isNaN(value)) return;
     updateTotalBill(dateStr, value).then(() => {
+      showSuccess("Đã cập nhật tổng bill");
       startTransition(() => router.refresh());
     }).catch(() => showError("Lỗi khi cập nhật tổng bill!"));
   }
@@ -133,6 +138,7 @@ export default function OrderTable({
     if (isNaN(value) || value < 0) return;
     setEditingPriceId(null);
     updateOrderUnitPrice(orderId, value).then(() => {
+      showSuccess("Đã cập nhật đơn giá");
       startTransition(() => router.refresh());
     }).catch(() => showError("Lỗi khi cập nhật đơn giá!"));
   }
@@ -143,12 +149,13 @@ export default function OrderTable({
     if (value !== null && (isNaN(value) || value < 0)) return;
     setEditingDebtId(null);
     updateMemberDebt(memberId, value).then(() => {
+      showSuccess("Đã cập nhật nợ");
       startTransition(() => router.refresh());
     }).catch(() => showError("Lỗi khi cập nhật nợ!"));
   }
 
   function formatCurrency(amount: number) {
-    return new Intl.NumberFormat("vi-VN").format(amount);
+    return new Intl.NumberFormat("vi-VN").format(amount * 1000);
   }
 
   return (
@@ -173,16 +180,22 @@ export default function OrderTable({
             <label className="text-sm font-medium text-gray-700">
               Tổng bill:
             </label>
-            <input
-              type="number"
-              value={billInput}
-              onChange={(e) => setBillInput(e.target.value)}
-              onBlur={handleUpdateBill}
-              onKeyDown={(e) => e.key === "Enter" && handleUpdateBill()}
-              placeholder="Nhập tổng bill..."
-              className="w-40 rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-800"
-              min="0"
-            />
+            <div className="relative w-40">
+              <input
+                type="number"
+                value={billInput}
+                onChange={(e) => setBillInput(e.target.value)}
+                onBlur={handleUpdateBill}
+                onKeyDown={(e) => e.key === "Enter" && handleUpdateBill()}
+                placeholder="Nhập tổng bill..."
+                className="w-full rounded border border-gray-300 py-1.5 pl-3 pr-9 text-right text-sm text-gray-800"
+                min="0"
+                step="1"
+              />
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+                000
+              </span>
+            </div>
             {perPerson && (
               <span className="text-sm text-gray-500">
                 ÷ {orderCount} = {formatCurrency(perPerson)}/người
@@ -239,6 +252,10 @@ export default function OrderTable({
                   ? optimisticPaid[order.id]
                   : (order?.paid ?? false);
 
+              // Settled today: still show the amount, but struck through.
+              // From the next day the debt reads as 0 (see getDebt).
+              const debtSettled = paidValue && debt > 0;
+
               return (
                 <tr
                   key={member.id}
@@ -268,18 +285,24 @@ export default function OrderTable({
                   <td className="px-3 py-2 text-right text-gray-700">
                     {hasOrder && order ? (
                       isAdmin && editingPriceId === order.id ? (
-                        <input
-                          type="number"
-                          value={editPriceValue}
-                          onChange={(e) => setEditPriceValue(e.target.value)}
-                          onBlur={() => handleUpdateUnitPrice(order.id)}
-                          onKeyDown={(e) =>
-                            e.key === "Enter" && handleUpdateUnitPrice(order.id)
-                          }
-                          className="w-24 rounded border border-gray-300 px-1 py-0.5 text-right text-sm text-gray-800"
-                          autoFocus
-                          min="0"
-                        />
+                        <span className="relative inline-block w-24">
+                          <input
+                            type="number"
+                            value={editPriceValue}
+                            onChange={(e) => setEditPriceValue(e.target.value)}
+                            onBlur={() => handleUpdateUnitPrice(order.id)}
+                            onKeyDown={(e) =>
+                              e.key === "Enter" && handleUpdateUnitPrice(order.id)
+                            }
+                            className="w-full rounded border border-gray-300 py-0.5 pl-1 pr-8 text-right text-sm text-gray-800"
+                            autoFocus
+                            min="0"
+                            step="1"
+                          />
+                          <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+                            000
+                          </span>
+                        </span>
                       ) : (
                         <span
                           className={isAdmin ? "cursor-pointer hover:text-blue-600" : ""}
@@ -314,23 +337,34 @@ export default function OrderTable({
                   </td>
                   <td
                     className={`px-3 py-2 text-right ${
-                      debt > 0 ? "font-medium text-red-600" : "text-gray-400"
+                      debtSettled
+                        ? "text-gray-400 line-through decoration-red-400"
+                        : debt > 0
+                          ? "font-medium text-red-600"
+                          : "text-gray-400"
                     }`}
+                    title={debtSettled ? "Đã thanh toán" : undefined}
                   >
                     {isAdmin && editingDebtId === member.id ? (
-                      <input
-                        type="number"
-                        value={editDebtValue}
-                        onChange={(e) => setEditDebtValue(e.target.value)}
-                        onBlur={() => handleUpdateDebt(member.id)}
-                        onKeyDown={(e) =>
-                          e.key === "Enter" && handleUpdateDebt(member.id)
-                        }
-                        placeholder="Để trống = tự tính"
-                        className="w-28 rounded border border-gray-300 px-1 py-0.5 text-right text-sm text-gray-800"
-                        autoFocus
-                        min="0"
-                      />
+                      <span className="relative inline-block w-28">
+                        <input
+                          type="number"
+                          value={editDebtValue}
+                          onChange={(e) => setEditDebtValue(e.target.value)}
+                          onBlur={() => handleUpdateDebt(member.id)}
+                          onKeyDown={(e) =>
+                            e.key === "Enter" && handleUpdateDebt(member.id)
+                          }
+                          placeholder="Tự tính"
+                          className="w-full rounded border border-gray-300 py-0.5 pl-1 pr-8 text-right text-sm text-gray-800"
+                          autoFocus
+                          min="0"
+                          step="1"
+                        />
+                        <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+                          000
+                        </span>
+                      </span>
                     ) : (
                       <span
                         className={isAdmin ? "cursor-pointer hover:text-blue-600" : ""}
@@ -350,16 +384,26 @@ export default function OrderTable({
             })}
           </tbody>
           <tfoot>
-            <tr className="border-t-2 border-gray-300 bg-gray-100 font-medium">
+            <tr className="border-t-2 border-gray-300 bg-gray-100 font-semibold">
               <td colSpan={3} className="px-3 py-2 text-right text-gray-700">
                 Tổng cộng:
               </td>
-              <td></td>
+              <td className="px-3 py-2 text-right text-gray-800">
+                {totalDonGia > 0 ? formatCurrency(totalDonGia) : ""}
+              </td>
               <td className="px-3 py-2 text-right text-gray-800">
                 {totalThanhTien > 0 ? formatCurrency(totalThanhTien) : ""}
               </td>
-              <td></td>
-              <td></td>
+              <td className="px-3 py-2 text-center text-gray-700">
+                {orderCount > 0 ? `${paidCount}/${orderCount}` : ""}
+              </td>
+              <td
+                className={`px-3 py-2 text-right ${
+                  totalDebt > 0 ? "text-red-600" : "text-gray-800"
+                }`}
+              >
+                {totalDebt > 0 ? formatCurrency(totalDebt) : ""}
+              </td>
             </tr>
           </tfoot>
         </table>

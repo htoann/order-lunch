@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "./prisma";
 
-const UNIT_PRICE = 35000;
+const UNIT_PRICE = 35;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "claytran";
 
 export async function verifyAdminPassword(password: string) {
@@ -27,11 +27,11 @@ export async function deleteMember(id: string) {
   revalidatePath("/");
 }
 
-export async function updateDish(id: string, name: string, price: number) {
-  if (!name.trim() || price <= 0) return;
+export async function updateDish(id: string, name: string) {
+  if (!name.trim()) return;
   await prisma.dish.update({
     where: { id },
-    data: { name: name.trim(), price },
+    data: { name: name.trim() },
   });
   revalidatePath("/");
 }
@@ -118,11 +118,21 @@ export async function updateTotalBill(
 }
 
 export async function togglePaid(orderId: string) {
-  const order = await prisma.order.findUnique({ where: { id: orderId } });
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { session: true },
+  });
   if (!order) return;
+  const nowPaid = !order.paid;
   await prisma.order.update({
     where: { id: orderId },
-    data: { paid: !order.paid },
+    data: { paid: nowPaid },
+  });
+  // Mark when the member settled up. On the payment day the old debt is still
+  // shown (struck through); from the next day it reads as 0.
+  await prisma.member.update({
+    where: { id: order.memberId },
+    data: { debtPaidOn: nowPaid ? order.session.date : null },
   });
   revalidatePath("/");
 }
@@ -133,21 +143,30 @@ export async function addMember(name: string) {
   revalidatePath("/");
 }
 
-export async function addDish(name: string, price: number) {
-  if (!name.trim() || price <= 0) return;
-  await prisma.dish.create({ data: { name: name.trim(), price } });
+export async function addDish(name: string) {
+  if (!name.trim()) return;
+  await prisma.dish.create({ data: { name: name.trim() } });
   revalidatePath("/");
 }
 
 export async function updateMemberDebt(memberId: string, debt: number | null) {
+  // Setting a new debt un-settles the member (a fresh amount is owed again).
   await prisma.member.update({
     where: { id: memberId },
-    data: { debtOverride: debt },
+    data: { debtOverride: debt, debtPaidOn: null },
   });
   revalidatePath("/");
 }
 
-export async function getDebt(memberId: string, beforeDate: Date, debtOverride?: number | null) {
+export async function getDebt(
+  memberId: string,
+  beforeDate: Date,
+  debtOverride?: number | null,
+  debtPaidOn?: Date | null,
+) {
+  // Once settled on a prior day, the old debt reads as 0.
+  if (debtPaidOn != null && debtPaidOn < beforeDate) return 0;
+
   if (debtOverride != null) return debtOverride;
 
   const result = await prisma.order.aggregate({
@@ -204,7 +223,10 @@ export async function getSessionData(dateStr: string) {
   ]);
 
   const debtEntries = await Promise.all(
-    members.map(async (m) => [m.id, await getDebt(m.id, date, m.debtOverride)] as const)
+    members.map(
+      async (m) =>
+        [m.id, await getDebt(m.id, date, m.debtOverride, m.debtPaidOn)] as const
+    )
   );
   const debts: Record<string, number> = Object.fromEntries(debtEntries);
 
