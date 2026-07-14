@@ -50,7 +50,7 @@ export default function ManagePanel({
   function handleAddDish(e: React.FormEvent) {
     e.preventDefault();
     const name = dishName;
-    const price = parseFloat(dishPrice);
+    const price = parseFloat(dishPrice) * 1000;
     setDishName("");
     setDishPrice("");
     addDish(name, price).then(() => {
@@ -74,7 +74,7 @@ export default function ManagePanel({
 
   function handleUpdateDish(id: string) {
     const name = editDishName;
-    const price = parseFloat(editDishPrice);
+    const price = parseFloat(editDishPrice) * 1000;
     setEditingDishId(null);
     updateDish(id, name, price).then(() => {
       startTransition(() => router.refresh());
@@ -200,15 +200,21 @@ export default function ManagePanel({
                 className="flex-1 rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-800"
                 required
               />
-              <input
-                type="number"
-                value={dishPrice}
-                onChange={(e) => setDishPrice(e.target.value)}
-                placeholder="Giá"
-                className="w-28 rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-800"
-                required
-                min="0"
-              />
+              <div className="relative w-28">
+                <input
+                  type="number"
+                  value={dishPrice}
+                  onChange={(e) => setDishPrice(e.target.value)}
+                  placeholder="Giá"
+                  className="w-full rounded border border-gray-300 py-1.5 pl-3 pr-9 text-right text-sm text-gray-800"
+                  required
+                  min="0"
+                  step="1"
+                />
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+                  000
+                </span>
+              </div>
               <button
                 type="submit"
 
@@ -237,13 +243,19 @@ export default function ManagePanel({
                           className="flex-1 rounded border border-gray-300 px-2 py-0.5 text-sm text-gray-800"
                           autoFocus
                         />
-                        <input
-                          type="number"
-                          value={editDishPrice}
-                          onChange={(e) => setEditDishPrice(e.target.value)}
-                          className="w-24 rounded border border-gray-300 px-2 py-0.5 text-sm text-gray-800"
-                          min="0"
-                        />
+                        <div className="relative w-24">
+                          <input
+                            type="number"
+                            value={editDishPrice}
+                            onChange={(e) => setEditDishPrice(e.target.value)}
+                            className="w-full rounded border border-gray-300 py-0.5 pl-2 pr-8 text-right text-sm text-gray-800"
+                            min="0"
+                            step="1"
+                          />
+                          <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+                            000
+                          </span>
+                        </div>
                         <button
                           onClick={() => handleUpdateDish(d.id)}
                           className="text-xs text-green-600 hover:text-green-800"
@@ -270,7 +282,7 @@ export default function ManagePanel({
                           onClick={() => {
                             setEditingDishId(d.id);
                             setEditDishName(d.name);
-                            setEditDishPrice(d.price.toString());
+                            setEditDishPrice((d.price / 1000).toString());
                           }}
                           className="text-xs text-blue-600 hover:text-blue-800"
                         >
