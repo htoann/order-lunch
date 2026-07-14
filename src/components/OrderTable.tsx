@@ -5,7 +5,7 @@ import { useState, useTransition } from "react";
 import {
   getOrCreateSession,
   upsertOrder,
-  togglePaid,
+  setMemberPaid,
   updateTotalBill,
   updateOrderUnitPrice,
   updateMemberDebt,
@@ -32,12 +32,14 @@ export default function OrderTable({
   members,
   dishes,
   debts,
+  paid,
 }: {
   dateStr: string;
   session: Session;
   members: Member[];
   dishes: Dish[];
   debts: Record<string, number>;
+  paid: Record<string, boolean>;
 }) {
   const router = useRouter();
   const { isAdmin } = useAdmin();
@@ -83,7 +85,9 @@ export default function OrderTable({
     (sum, o) => sum + o.unitPrice,
     0
   );
-  const paidCount = Array.from(orderMap.values()).filter((o) => o.paid).length;
+  const paidCount = members.filter((m) =>
+    m.id in optimisticPaid ? optimisticPaid[m.id] : (paid[m.id] ?? false)
+  ).length;
   const totalDebt = Object.values(debts).reduce((sum, d) => sum + d, 0);
 
   const ROW_COLORS = [
@@ -109,15 +113,15 @@ export default function OrderTable({
     }).catch(() => showError("Lỗi kết nối server!"));
   }
 
-  function handleTogglePaid(orderId: string, currentPaid: boolean) {
-    setOptimisticPaid((prev) => ({ ...prev, [orderId]: !currentPaid }));
+  function handleTogglePaid(memberId: string, currentPaid: boolean) {
+    setOptimisticPaid((prev) => ({ ...prev, [memberId]: !currentPaid }));
 
-    togglePaid(orderId).then(() => {
+    setMemberPaid(memberId, dateStr, !currentPaid).then(() => {
       startTransition(() => {
         router.refresh();
         setOptimisticPaid((prev) => {
           const next = { ...prev };
-          delete next[orderId];
+          delete next[memberId];
           return next;
         });
       });
@@ -248,9 +252,9 @@ export default function OrderTable({
               const hasOrder = displayDishId !== null;
 
               const paidValue =
-                order && order.id in optimisticPaid
-                  ? optimisticPaid[order.id]
-                  : (order?.paid ?? false);
+                member.id in optimisticPaid
+                  ? optimisticPaid[member.id]
+                  : (paid[member.id] ?? false);
 
               // Settled today: still show the amount, but struck through.
               // From the next day the debt reads as 0 (see getDebt).
@@ -324,16 +328,12 @@ export default function OrderTable({
                     {hasOrder && perPerson ? formatCurrency(perPerson) : ""}
                   </td>
                   <td className="px-3 py-2 text-center">
-                    {order && hasOrder && (
-                      <input
-                        type="checkbox"
-                        checked={paidValue}
-                        onChange={() =>
-                          handleTogglePaid(order.id, order.paid)
-                        }
-                        className="h-4 w-4 cursor-pointer accent-green-600"
-                      />
-                    )}
+                    <input
+                      type="checkbox"
+                      checked={paidValue}
+                      onChange={() => handleTogglePaid(member.id, paidValue)}
+                      className="h-4 w-4 cursor-pointer accent-green-600"
+                    />
                   </td>
                   <td
                     className={`px-3 py-2 text-right ${
@@ -395,7 +395,7 @@ export default function OrderTable({
                 {totalThanhTien > 0 ? formatCurrency(totalThanhTien) : ""}
               </td>
               <td className="px-3 py-2 text-center text-gray-700">
-                {orderCount > 0 ? `${paidCount}/${orderCount}` : ""}
+                {`${paidCount}/${members.length}`}
               </td>
               <td
                 className={`px-3 py-2 text-right ${

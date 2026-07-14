@@ -17,7 +17,7 @@ export default async function Home({
   const params = await searchParams;
   const today = new Date().toISOString().split("T")[0];
   const dateStr = params.date || today;
-  const { session, members, dishes, debts } = await getSessionData(dateStr);
+  const { session, members, dishes, debts, paid } = await getSessionData(dateStr);
 
   const images = session?.images ?? [];
 
@@ -52,6 +52,7 @@ export default async function Home({
                 members={members}
                 dishes={dishes}
                 debts={debts}
+                paid={paid}
               />
             </div>
 

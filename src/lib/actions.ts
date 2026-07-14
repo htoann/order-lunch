@@ -117,23 +117,29 @@ export async function updateTotalBill(
   revalidatePath("/");
 }
 
-export async function togglePaid(orderId: string) {
-  const order = await prisma.order.findUnique({
-    where: { id: orderId },
-    include: { session: true },
-  });
-  if (!order) return;
-  const nowPaid = !order.paid;
-  await prisma.order.update({
-    where: { id: orderId },
-    data: { paid: nowPaid },
-  });
+export async function setMemberPaid(
+  memberId: string,
+  dateStr: string,
+  paid: boolean,
+) {
+  const date = new Date(dateStr + "T00:00:00.000Z");
   // Mark when the member settled up. On the payment day the old debt is still
   // shown (struck through); from the next day it reads as 0.
   await prisma.member.update({
-    where: { id: order.memberId },
-    data: { debtPaidOn: nowPaid ? order.session.date : null },
+    where: { id: memberId },
+    data: { debtPaidOn: paid ? date : null },
   });
+  // Keep the order's paid flag in sync when the member has an order that day
+  // (so the auto-accumulated debt stays correct).
+  const session = await prisma.orderSession.findUnique({ where: { date } });
+  if (session) {
+    const order = await prisma.order.findFirst({
+      where: { sessionId: session.id, memberId },
+    });
+    if (order) {
+      await prisma.order.update({ where: { id: order.id }, data: { paid } });
+    }
+  }
   revalidatePath("/");
 }
 
@@ -230,5 +236,13 @@ export async function getSessionData(dateStr: string) {
   );
   const debts: Record<string, number> = Object.fromEntries(debtEntries);
 
-  return { session, members, dishes, debts };
+  // A member counts as "paid" for this date when they settled on this exact day.
+  const paid: Record<string, boolean> = Object.fromEntries(
+    members.map(
+      (m) =>
+        [m.id, m.debtPaidOn != null && m.debtPaidOn.getTime() === date.getTime()] as const
+    )
+  );
+
+  return { session, members, dishes, debts, paid };
 }
