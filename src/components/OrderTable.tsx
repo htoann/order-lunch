@@ -103,7 +103,12 @@ export default function OrderTable({
     0
   );
   const paidCount = members.filter((m) => effectivePaid(m.id)).length;
-  const totalDebt = Object.values(debts).reduce((sum, d) => sum + d, 0);
+  // Exclude debts already settled (member ticked paid) so the total drops as
+  // soon as a row is settled, matching the struck-through per-row display.
+  const totalDebt = members.reduce(
+    (sum, m) => (effectivePaid(m.id) ? sum : sum + (debts[m.id] || 0)),
+    0
+  );
 
   const ROW_COLORS = [
     "#dbeafe", "#fce7f3", "#d1fae5", "#fef3c7",
