@@ -248,7 +248,6 @@ export default function OrderTable({
                 type="number"
                 value={billInput}
                 onChange={(e) => setBillInput(e.target.value)}
-                onBlur={handleUpdateBill}
                 onKeyDown={(e) => e.key === "Enter" && handleUpdateBill()}
                 placeholder="Nhập tổng bill..."
                 className="w-full rounded border border-gray-300 py-1.5 pl-3 pr-9 text-right text-sm text-gray-800"
@@ -259,6 +258,18 @@ export default function OrderTable({
                 000
               </span>
             </div>
+            <button
+              type="button"
+              onClick={handleUpdateBill}
+              disabled={
+                (billInput.trim() === ""
+                  ? null
+                  : parseFloat(billInput)) === (session?.totalBill ?? null)
+              }
+              className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Tính
+            </button>
             {perPerson && (
               <span className="text-sm text-gray-500">
                 ÷ {orderCount} = {formatCurrency(perPerson)}/người
