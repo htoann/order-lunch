@@ -6,6 +6,10 @@ import { prisma } from "./prisma";
 const UNIT_PRICE = 35;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "claytran";
 
+// Members who never carry a running debt — the owner settles the bill directly,
+// so their "Tổng nợ cũ" is always 0 regardless of their orders.
+const DEBT_EXEMPT_NAMES = new Set(["Clay"]);
+
 export async function verifyAdminPassword(password: string) {
   return password === ADMIN_PASSWORD;
 }
@@ -294,7 +298,9 @@ export async function getSessionData(dateStr: string) {
       async (m) =>
         [
           m.id,
-          await getDebt(m.id, date, m.debtOverride, m.debtPaidOn, m.debtOverrideOn),
+          DEBT_EXEMPT_NAMES.has(m.name)
+            ? 0
+            : await getDebt(m.id, date, m.debtOverride, m.debtPaidOn, m.debtOverrideOn),
         ] as const
     )
   );
