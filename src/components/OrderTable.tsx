@@ -221,22 +221,60 @@ export default function OrderTable({
     return new Intl.NumberFormat("vi-VN").format(amount * 1000);
   }
 
+  // Shift the current date by whole days (UTC to match how sessions are keyed).
+  function shiftDate(days: number): string {
+    const d = new Date(dateStr + "T00:00:00.000Z");
+    d.setUTCDate(d.getUTCDate() + days);
+    return d.toISOString().split("T")[0];
+  }
+
+  function goToDate(next: string) {
+    router.push(`/?date=${next}`);
+  }
+
   return (
     <div>
       {/* Date selector + Total bill input */}
       <div className="mb-4 flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-2">
           <label className="text-sm font-medium text-gray-700">Ngày:</label>
+          <button
+            type="button"
+            onClick={() => goToDate(shiftDate(-1))}
+            aria-label="Ngày trước"
+            title="Ngày trước"
+            className="flex h-8 w-8 items-center justify-center rounded border border-gray-300 text-gray-600 hover:bg-gray-100"
+          >
+            ‹
+          </button>
           {isAdmin ? (
             <input
               type="date"
               value={dateStr}
-              onChange={(e) => router.push(`/?date=${e.target.value}`)}
+              onChange={(e) => goToDate(e.target.value)}
               className="rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-800"
             />
           ) : (
-            <span className="text-sm text-gray-800">{dateStr}</span>
+            <span className="min-w-[6.5rem] text-center text-sm text-gray-800">
+              {dateStr}
+            </span>
           )}
+          <button
+            type="button"
+            onClick={() => goToDate(shiftDate(1))}
+            aria-label="Ngày sau"
+            title="Ngày sau"
+            className="flex h-8 w-8 items-center justify-center rounded border border-gray-300 text-gray-600 hover:bg-gray-100"
+          >
+            ›
+          </button>
+          <button
+            type="button"
+            onClick={() => goToDate(new Date().toISOString().split("T")[0])}
+            className="rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
+          >
+            Hôm nay
+          </button>
         </div>
         {isAdmin ? (
           <div className="flex items-center gap-2">
