@@ -4,6 +4,7 @@ import ManagePanel from "@/components/ManagePanel";
 import ImagePanel from "@/components/ImagePanel";
 import AdminProvider from "@/components/AdminProvider";
 import AdminButton from "@/components/AdminButton";
+import FeedbackButton from "@/components/FeedbackButton";
 import ToastProvider from "@/components/ToastProvider";
 import ConfirmProvider from "@/components/ConfirmProvider";
 
@@ -41,7 +42,10 @@ export default async function Home({
                 </p>
               </div>
             </div>
-            <AdminButton />
+            <div className="flex items-center gap-2">
+              <FeedbackButton />
+              <AdminButton />
+            </div>
           </div>
 
           <div className="flex flex-col gap-6 lg:flex-row">

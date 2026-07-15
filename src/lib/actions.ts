@@ -203,6 +203,28 @@ export async function deleteSessionImage(imageId: string) {
   revalidatePath("/");
 }
 
+export async function addFeedback(message: string, name?: string) {
+  const trimmed = message.trim();
+  if (!trimmed) return;
+  const trimmedName = name?.trim();
+  await prisma.feedback.create({
+    data: {
+      message: trimmed,
+      name: trimmedName ? trimmedName : null,
+    },
+  });
+}
+
+export async function getFeedbacks() {
+  return prisma.feedback.findMany({
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function deleteFeedback(id: string) {
+  await prisma.feedback.delete({ where: { id } });
+}
+
 export async function getSessionData(dateStr: string) {
   const date = new Date(dateStr + "T00:00:00.000Z");
 

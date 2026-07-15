@@ -41,6 +41,13 @@ model SessionImage {
   session   OrderSession @relation(fields: [sessionId], references: [id])
 }
 
+model Feedback {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String?
+  message   String
+  createdAt DateTime @default(now())
+}
+
 model Order {
   id        String       @id @default(auto()) @map("_id") @db.ObjectId
   memberId  String       @db.ObjectId
