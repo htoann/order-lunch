@@ -124,22 +124,15 @@ export async function setMemberPaid(
 ) {
   const date = new Date(dateStr + "T00:00:00.000Z");
   // Mark when the member settled up. On the payment day the old debt is still
-  // shown (struck through); from the next day it reads as 0.
+  // shown (struck through); from the next day it reads as 0. Settling also
+  // clears any manual debt override so the payment isn't masked by it.
   await prisma.member.update({
     where: { id: memberId },
-    data: { debtPaidOn: paid ? date : null },
+    data: {
+      debtPaidOn: paid ? date : null,
+      ...(paid ? { debtOverride: null } : {}),
+    },
   });
-  // Keep the order's paid flag in sync when the member has an order that day
-  // (so the auto-accumulated debt stays correct).
-  const session = await prisma.orderSession.findUnique({ where: { date } });
-  if (session) {
-    const order = await prisma.order.findFirst({
-      where: { sessionId: session.id, memberId },
-    });
-    if (order) {
-      await prisma.order.update({ where: { id: order.id }, data: { paid } });
-    }
-  }
   revalidatePath("/");
 }
 
@@ -170,20 +163,37 @@ export async function getDebt(
   debtOverride?: number | null,
   debtPaidOn?: Date | null,
 ) {
-  // Once settled on a prior day, the old debt reads as 0.
-  if (debtPaidOn != null && debtPaidOn < beforeDate) return 0;
-
+  // A manually-set debt wins outright.
   if (debtOverride != null) return debtOverride;
 
-  const result = await prisma.order.aggregate({
+  // Settling clears only what was owed *before* the settle day — each day's own
+  // meal ("Thành tiền") always rolls into the next day's debt, even when the
+  // member ticked paid. So from the day after settling we start summing at the
+  // settle date; on the settle day itself the pre-payment debt still shows
+  // (struck through in the UI), then drops the next day.
+  const lowerBound =
+    debtPaidOn != null && beforeDate > debtPaidOn ? debtPaidOn : null;
+
+  const sessions = await prisma.orderSession.findMany({
     where: {
-      memberId,
-      paid: false,
-      session: { date: { lt: beforeDate } },
+      date: { lt: beforeDate, ...(lowerBound ? { gte: lowerBound } : {}) },
+      orders: { some: { memberId } },
     },
-    _sum: { unitPrice: true },
+    include: { orders: { select: { memberId: true, unitPrice: true } } },
   });
-  return result._sum.unitPrice || 0;
+
+  let total = 0;
+  for (const s of sessions) {
+    const memberOrder = s.orders.find((o) => o.memberId === memberId);
+    if (!memberOrder) continue;
+    // Each day contributes the real per-person share (bill split), falling back
+    // to the order's unit price when no total bill was entered that day.
+    total +=
+      s.totalBill != null && s.orders.length > 0
+        ? Math.ceil(s.totalBill / s.orders.length)
+        : memberOrder.unitPrice;
+  }
+  return total;
 }
 
 export async function uploadSessionImage(
