@@ -148,11 +148,19 @@ export async function addDish(name: string) {
   revalidatePath("/");
 }
 
-export async function updateMemberDebt(memberId: string, debt: number | null) {
-  // Setting a new debt un-settles the member (a fresh amount is owed again).
+export async function updateMemberDebt(
+  memberId: string,
+  debt: number | null,
+  dateStr: string,
+) {
+  // A manual debt is a baseline "as of" the day it's entered: from this day on,
+  // that amount is owed and each later day's meal accumulates on top. Setting it
+  // also un-settles the member (a fresh amount is owed again). Clearing it (null)
+  // drops the baseline and its anchor too.
+  const anchor = debt == null ? null : new Date(dateStr + "T00:00:00.000Z");
   await prisma.member.update({
     where: { id: memberId },
-    data: { debtOverride: debt, debtPaidOn: null },
+    data: { debtOverride: debt, debtOverrideOn: anchor, debtPaidOn: null },
   });
   revalidatePath("/");
 }
@@ -162,30 +170,48 @@ export async function getDebt(
   beforeDate: Date,
   debtOverride?: number | null,
   debtPaidOn?: Date | null,
+  debtOverrideOn?: Date | null,
 ) {
-  // Settling clears only what was owed *before* the settle day — each day's own
-  // meal ("Thành tiền") always rolls into the next day's debt, even when the
-  // member ticked paid. So from the day after settling we start summing at the
-  // settle date; on the settle day itself the pre-payment debt still shows
-  // (struck through in the UI), then drops the next day.
-  const settled = debtPaidOn != null && beforeDate > debtPaidOn;
+  // Debt is a running ledger: pick the most recent "reset point", take its
+  // baseline, then add every day's own meal ("Thành tiền") from that point up to
+  // (but not including) the viewed day. So an *unpaid* debt keeps growing day by
+  // day — next day's debt = old debt + yesterday's Thành tiền.
+  //
+  // There are two kinds of reset point:
+  //   • Payment (debtPaidOn): baseline 0. It only takes effect the day *after*
+  //     settling — on the settle day the pre-payment debt still shows (struck
+  //     through in the UI), then drops to just that day's meal onward.
+  //   • Manual override (debtOverride entered on debtOverrideOn): baseline is the
+  //     entered amount, effective from that day onward (including it). Later days'
+  //     meals accumulate on top, so a hand-entered debt still rolls forward.
+  const paymentActive = debtPaidOn != null && beforeDate > debtPaidOn;
+  const overrideActive =
+    debtOverride != null && debtOverrideOn != null && beforeDate >= debtOverrideOn;
 
-  // A manually-set debt wins until the member settles up. Once they've paid on a
-  // prior day the override is stale (it was the pre-payment figure), so payment
-  // supersedes it and the debt is rebuilt from that day's meals forward.
-  if (debtOverride != null && !settled) return debtOverride;
-
-  const lowerBound = settled ? debtPaidOn : null;
+  // The later reset point wins. On a tie, payment wins (settling supersedes the
+  // now-stale pre-payment figure).
+  let anchorDate: Date | null = null;
+  let baseline = 0;
+  if (
+    overrideActive &&
+    (!paymentActive || (debtOverrideOn as Date) > (debtPaidOn as Date))
+  ) {
+    anchorDate = debtOverrideOn as Date;
+    baseline = debtOverride as number;
+  } else if (paymentActive) {
+    anchorDate = debtPaidOn as Date;
+    baseline = 0;
+  }
 
   const sessions = await prisma.orderSession.findMany({
     where: {
-      date: { lt: beforeDate, ...(lowerBound ? { gte: lowerBound } : {}) },
+      date: { lt: beforeDate, ...(anchorDate ? { gte: anchorDate } : {}) },
       orders: { some: { memberId } },
     },
     include: { orders: { select: { memberId: true, unitPrice: true } } },
   });
 
-  let total = 0;
+  let total = baseline;
   for (const s of sessions) {
     const memberOrder = s.orders.find((o) => o.memberId === memberId);
     if (!memberOrder) continue;
@@ -266,7 +292,10 @@ export async function getSessionData(dateStr: string) {
   const debtEntries = await Promise.all(
     members.map(
       async (m) =>
-        [m.id, await getDebt(m.id, date, m.debtOverride, m.debtPaidOn)] as const
+        [
+          m.id,
+          await getDebt(m.id, date, m.debtOverride, m.debtPaidOn, m.debtOverrideOn),
+        ] as const
     )
   );
   const debts: Record<string, number> = Object.fromEntries(debtEntries);

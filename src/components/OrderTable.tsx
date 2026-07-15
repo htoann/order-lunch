@@ -206,7 +206,7 @@ export default function OrderTable({
     if (value !== null && (isNaN(value) || value < 0)) return;
     setEditingDebtId(null);
     try {
-      await promise(updateMemberDebt(memberId, value), {
+      await promise(updateMemberDebt(memberId, value, dateStr), {
         loading: "Đang lưu...",
         success: "Đã cập nhật nợ",
         error: "Lỗi khi cập nhật nợ!",
