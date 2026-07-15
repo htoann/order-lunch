@@ -163,16 +163,19 @@ export async function getDebt(
   debtOverride?: number | null,
   debtPaidOn?: Date | null,
 ) {
-  // A manually-set debt wins outright.
-  if (debtOverride != null) return debtOverride;
-
   // Settling clears only what was owed *before* the settle day — each day's own
   // meal ("Thành tiền") always rolls into the next day's debt, even when the
   // member ticked paid. So from the day after settling we start summing at the
   // settle date; on the settle day itself the pre-payment debt still shows
   // (struck through in the UI), then drops the next day.
-  const lowerBound =
-    debtPaidOn != null && beforeDate > debtPaidOn ? debtPaidOn : null;
+  const settled = debtPaidOn != null && beforeDate > debtPaidOn;
+
+  // A manually-set debt wins until the member settles up. Once they've paid on a
+  // prior day the override is stale (it was the pre-payment figure), so payment
+  // supersedes it and the debt is rebuilt from that day's meals forward.
+  if (debtOverride != null && !settled) return debtOverride;
+
+  const lowerBound = settled ? debtPaidOn : null;
 
   const sessions = await prisma.orderSession.findMany({
     where: {
