@@ -49,6 +49,13 @@ model Feedback {
   createdAt DateTime @default(now())
 }
 
+model Activity {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  action    String
+  detail    String
+  createdAt DateTime @default(now())
+}
+
 model Order {
   id        String       @id @default(auto()) @map("_id") @db.ObjectId
   memberId  String       @db.ObjectId

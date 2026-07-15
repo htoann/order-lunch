@@ -1,7 +1,8 @@
-import { getSessionData } from "@/lib/actions";
+import { getSessionData, getActivities } from "@/lib/actions";
 import OrderTable from "@/components/OrderTable";
 import ManagePanel from "@/components/ManagePanel";
 import ImagePanel from "@/components/ImagePanel";
+import ActivityPanel from "@/components/ActivityPanel";
 import AdminProvider from "@/components/AdminProvider";
 import AdminButton from "@/components/AdminButton";
 import FeedbackButton from "@/components/FeedbackButton";
@@ -18,7 +19,8 @@ export default async function Home({
   const params = await searchParams;
   const today = new Date().toISOString().split("T")[0];
   const dateStr = params.date || today;
-  const { session, members, dishes, debts, paid } = await getSessionData(dateStr);
+  const [{ session, members, dishes, debts, paid }, activities] =
+    await Promise.all([getSessionData(dateStr), getActivities()]);
 
   const images = session?.images ?? [];
 
@@ -27,7 +29,7 @@ export default async function Home({
     <ConfirmProvider>
     <AdminProvider>
       <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-        <div className="mx-auto max-w-7xl">
+        <div className="mx-auto max-w-[1600px]">
           <div className="mb-6 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-xl shadow-sm">
@@ -49,7 +51,11 @@ export default async function Home({
           </div>
 
           <div className="flex flex-col gap-6 lg:flex-row">
-            <div className="min-w-0 flex-1">
+            <div className="order-3 w-full lg:order-1 lg:w-64 xl:w-72">
+              <ActivityPanel activities={activities} />
+            </div>
+
+            <div className="order-1 min-w-0 flex-1 lg:order-2">
               <OrderTable
                 dateStr={dateStr}
                 session={session}
@@ -60,7 +66,7 @@ export default async function Home({
               />
             </div>
 
-            <div className="w-full lg:w-72 xl:w-80">
+            <div className="order-2 w-full lg:order-3 lg:w-72 xl:w-80">
               <ImagePanel dateStr={dateStr} images={images} />
             </div>
           </div>

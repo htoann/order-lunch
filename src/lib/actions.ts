@@ -10,55 +10,116 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "claytran";
 // so their "Tổng nợ cũ" is always 0 regardless of their orders.
 const DEBT_EXEMPT_NAMES = new Set(["Clay"]);
 
+// Record a human-readable line in the activity history. `action` is a category
+// slug (order/member/dish/paid/debt/bill/image) used for the icon in the UI.
+// Logging must never break the underlying action, so failures are swallowed.
+async function logActivity(action: string, detail: string) {
+  try {
+    await prisma.activity.create({ data: { action, detail } });
+  } catch {
+    // ignore
+  }
+}
+
+// Amounts are stored in thousands of VND; show them compactly as e.g. "35k".
+const k = (n: number) => `${n}k`;
+
 export async function verifyAdminPassword(password: string) {
   return password === ADMIN_PASSWORD;
 }
 
 export async function updateMember(id: string, name: string) {
-  if (!name.trim()) return;
+  const trimmed = name.trim();
+  if (!trimmed) return;
+  const before = await prisma.member.findUnique({
+    where: { id },
+    select: { name: true },
+  });
   await prisma.member.update({
     where: { id },
-    data: { name: name.trim() },
+    data: { name: trimmed },
   });
+  await logActivity(
+    "member",
+    before && before.name !== trimmed
+      ? `Đổi tên thành viên "${before.name}" → "${trimmed}"`
+      : `Cập nhật thành viên "${trimmed}"`,
+  );
   revalidatePath("/");
 }
 
 export async function deleteMember(id: string) {
+  const m = await prisma.member.findUnique({
+    where: { id },
+    select: { name: true },
+  });
   await prisma.member.update({
     where: { id },
     data: { active: false },
   });
+  await logActivity("member", `Xóa thành viên "${m?.name ?? "?"}"`);
   revalidatePath("/");
 }
 
 export async function updateDish(id: string, name: string) {
-  if (!name.trim()) return;
+  const trimmed = name.trim();
+  if (!trimmed) return;
+  const before = await prisma.dish.findUnique({
+    where: { id },
+    select: { name: true },
+  });
   await prisma.dish.update({
     where: { id },
-    data: { name: name.trim() },
+    data: { name: trimmed },
   });
+  await logActivity(
+    "dish",
+    before && before.name !== trimmed
+      ? `Đổi tên món "${before.name}" → "${trimmed}"`
+      : `Cập nhật món "${trimmed}"`,
+  );
   revalidatePath("/");
 }
 
 export async function deleteDish(id: string) {
+  const d = await prisma.dish.findUnique({
+    where: { id },
+    select: { name: true },
+  });
   await prisma.dish.update({
     where: { id },
     data: { active: false },
   });
+  await logActivity("dish", `Xóa món "${d?.name ?? "?"}"`);
   revalidatePath("/");
 }
 
 export async function deleteOrder(orderId: string) {
+  const o = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: {
+      member: { select: { name: true } },
+      dish: { select: { name: true } },
+    },
+  });
   await prisma.order.delete({ where: { id: orderId } });
+  if (o) {
+    await logActivity("order", `Xóa order của "${o.member.name}" (${o.dish.name})`);
+  }
   revalidatePath("/");
 }
 
 export async function updateOrderUnitPrice(orderId: string, unitPrice: number) {
   if (unitPrice < 0) return;
-  await prisma.order.update({
+  const o = await prisma.order.update({
     where: { id: orderId },
     data: { unitPrice },
+    include: { member: { select: { name: true } } },
   });
+  await logActivity(
+    "order",
+    `Sửa đơn giá của "${o.member.name}" thành ${k(unitPrice)}`,
+  );
   revalidatePath("/");
 }
 
@@ -79,20 +140,33 @@ export async function upsertOrder(
   const existing = await prisma.order.findFirst({
     where: { sessionId, memberId },
   });
+  const member = await prisma.member.findUnique({
+    where: { id: memberId },
+    select: { name: true },
+  });
+  const mName = member?.name ?? "?";
 
   if (dishId === null) {
     if (existing) {
       await prisma.order.delete({ where: { id: existing.id } });
+      await logActivity("order", `"${mName}" bỏ chọn món`);
     }
     revalidatePath("/");
     return null;
   }
+
+  const dish = await prisma.dish.findUnique({
+    where: { id: dishId },
+    select: { name: true },
+  });
+  const dName = dish?.name ?? "?";
 
   if (existing) {
     const updated = await prisma.order.update({
       where: { id: existing.id },
       data: { dishId, unitPrice: UNIT_PRICE },
     });
+    await logActivity("order", `"${mName}" đổi món → "${dName}"`);
     revalidatePath("/");
     return updated;
   }
@@ -105,6 +179,7 @@ export async function upsertOrder(
       unitPrice: UNIT_PRICE,
     },
   });
+  await logActivity("order", `"${mName}" chọn món "${dName}"`);
   revalidatePath("/");
   return order;
 }
@@ -118,6 +193,12 @@ export async function updateTotalBill(
     where: { id: session.id },
     data: { totalBill },
   });
+  await logActivity(
+    "bill",
+    totalBill == null
+      ? `Xóa tổng bill ngày ${dateStr}`
+      : `Cập nhật tổng bill ngày ${dateStr}: ${k(totalBill)}`,
+  );
   revalidatePath("/");
 }
 
@@ -130,25 +211,36 @@ export async function setMemberPaid(
   // Mark when the member settled up. On the payment day the old debt is still
   // shown (struck through); from the next day it reads as 0. Settling also
   // clears any manual debt override so the payment isn't masked by it.
-  await prisma.member.update({
+  const m = await prisma.member.update({
     where: { id: memberId },
     data: {
       debtPaidOn: paid ? date : null,
       ...(paid ? { debtOverride: null } : {}),
     },
+    select: { name: true },
   });
+  await logActivity(
+    "paid",
+    paid
+      ? `"${m.name}" đã thanh toán (${dateStr})`
+      : `"${m.name}" bỏ thanh toán (${dateStr})`,
+  );
   revalidatePath("/");
 }
 
 export async function addMember(name: string) {
-  if (!name.trim()) return;
-  await prisma.member.create({ data: { name: name.trim() } });
+  const trimmed = name.trim();
+  if (!trimmed) return;
+  await prisma.member.create({ data: { name: trimmed } });
+  await logActivity("member", `Thêm thành viên "${trimmed}"`);
   revalidatePath("/");
 }
 
 export async function addDish(name: string) {
-  if (!name.trim()) return;
-  await prisma.dish.create({ data: { name: name.trim() } });
+  const trimmed = name.trim();
+  if (!trimmed) return;
+  await prisma.dish.create({ data: { name: trimmed } });
+  await logActivity("dish", `Thêm món "${trimmed}"`);
   revalidatePath("/");
 }
 
@@ -162,10 +254,17 @@ export async function updateMemberDebt(
   // also un-settles the member (a fresh amount is owed again). Clearing it (null)
   // drops the baseline and its anchor too.
   const anchor = debt == null ? null : new Date(dateStr + "T00:00:00.000Z");
-  await prisma.member.update({
+  const m = await prisma.member.update({
     where: { id: memberId },
     data: { debtOverride: debt, debtOverrideOn: anchor, debtPaidOn: null },
+    select: { name: true },
   });
+  await logActivity(
+    "debt",
+    debt == null
+      ? `Đặt nợ của "${m.name}" về tự tính`
+      : `Cập nhật nợ của "${m.name}": ${k(debt)} (từ ${dateStr})`,
+  );
   revalidatePath("/");
 }
 
@@ -238,11 +337,31 @@ export async function uploadSessionImage(
   await prisma.sessionImage.create({
     data: { sessionId: session.id, data, filename },
   });
+  await logActivity("image", `Tải ảnh lên ngày ${dateStr}`);
   revalidatePath("/");
 }
 
 export async function deleteSessionImage(imageId: string) {
   await prisma.sessionImage.delete({ where: { id: imageId } });
+  await logActivity("image", `Xóa ảnh`);
+  revalidatePath("/");
+}
+
+export async function getActivities(limit = 50) {
+  const items = await prisma.activity.findMany({
+    orderBy: { createdAt: "desc" },
+    take: limit,
+  });
+  return items.map((a) => ({
+    id: a.id,
+    action: a.action,
+    detail: a.detail,
+    ts: a.createdAt.getTime(),
+  }));
+}
+
+export async function clearActivities() {
+  await prisma.activity.deleteMany({});
   revalidatePath("/");
 }
 
