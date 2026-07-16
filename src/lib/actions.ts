@@ -24,6 +24,12 @@ async function logActivity(action: string, detail: string) {
 // Amounts are stored in thousands of VND; show them compactly as e.g. "35k".
 const k = (n: number) => `${n}k`;
 
+// Display an ISO date string (YYYY-MM-DD) as dd/mm/yyyy.
+const fmtDate = (iso: string) => {
+  const [y, m, d] = iso.split("-");
+  return `${d}/${m}/${y}`;
+};
+
 export async function verifyAdminPassword(password: string) {
   return password === ADMIN_PASSWORD;
 }
@@ -196,8 +202,8 @@ export async function updateTotalBill(
   await logActivity(
     "bill",
     totalBill == null
-      ? `Xóa tổng bill ngày ${dateStr}`
-      : `Cập nhật tổng bill ngày ${dateStr}: ${k(totalBill)}`,
+      ? `Xóa tổng bill ngày ${fmtDate(dateStr)}`
+      : `Cập nhật tổng bill ngày ${fmtDate(dateStr)}: ${k(totalBill)}`,
   );
   revalidatePath("/");
 }
@@ -222,8 +228,8 @@ export async function setMemberPaid(
   await logActivity(
     "paid",
     paid
-      ? `"${m.name}" đã thanh toán (${dateStr})`
-      : `"${m.name}" bỏ thanh toán (${dateStr})`,
+      ? `"${m.name}" đã thanh toán (${fmtDate(dateStr)})`
+      : `"${m.name}" bỏ thanh toán (${fmtDate(dateStr)})`,
   );
   revalidatePath("/");
 }
@@ -263,7 +269,7 @@ export async function updateMemberDebt(
     "debt",
     debt == null
       ? `Đặt nợ của "${m.name}" về tự tính`
-      : `Cập nhật nợ của "${m.name}": ${k(debt)} (từ ${dateStr})`,
+      : `Cập nhật nợ của "${m.name}": ${k(debt)} (từ ${fmtDate(dateStr)})`,
   );
   revalidatePath("/");
 }
@@ -337,7 +343,7 @@ export async function uploadSessionImage(
   await prisma.sessionImage.create({
     data: { sessionId: session.id, data, filename },
   });
-  await logActivity("image", `Tải ảnh lên ngày ${dateStr}`);
+  await logActivity("image", `Tải ảnh lên ngày ${fmtDate(dateStr)}`);
   revalidatePath("/");
 }
 

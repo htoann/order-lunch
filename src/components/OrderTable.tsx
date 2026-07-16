@@ -221,6 +221,12 @@ export default function OrderTable({
     return new Intl.NumberFormat("vi-VN").format(amount * 1000);
   }
 
+  // Display an ISO date string (YYYY-MM-DD) as dd/mm/yyyy.
+  function formatDate(iso: string): string {
+    const [y, m, d] = iso.split("-");
+    return `${d}/${m}/${y}`;
+  }
+
   // Shift the current date by whole days (UTC to match how sessions are keyed).
   function shiftDate(days: number): string {
     const d = new Date(dateStr + "T00:00:00.000Z");
@@ -273,7 +279,7 @@ export default function OrderTable({
               </button>
             </>
           ) : (
-            <span className="text-sm text-gray-800">{dateStr}</span>
+            <span className="text-sm text-gray-800">{formatDate(dateStr)}</span>
           )}
         </div>
         {isAdmin ? (
