@@ -439,5 +439,21 @@ export async function getSessionData(dateStr: string) {
     )
   );
 
-  return { session, members, dishes, debts, paid };
+  // Images carry forward: if today has none of its own, show the most recent
+  // earlier day's images (view-only) so moving to a new day keeps the old ones.
+  let images = session?.images ?? [];
+  let imagesFromDate = dateStr;
+  if (images.length === 0) {
+    const prev = await prisma.orderSession.findFirst({
+      where: { date: { lt: date }, images: { some: {} } },
+      orderBy: { date: "desc" },
+      include: { images: { orderBy: { createdAt: "asc" } } },
+    });
+    if (prev) {
+      images = prev.images;
+      imagesFromDate = prev.date.toISOString().split("T")[0];
+    }
+  }
+
+  return { session, members, dishes, debts, paid, images, imagesFromDate };
 }

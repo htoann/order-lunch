@@ -14,13 +14,23 @@ type SessionImage = {
   filename: string;
 };
 
+function formatDate(iso: string): string {
+  const [y, m, d] = iso.split("-");
+  return `${d}/${m}/${y}`;
+}
+
 export default function ImagePanel({
   dateStr,
   images,
+  imagesFromDate,
 }: {
   dateStr: string;
   images: SessionImage[];
+  imagesFromDate: string;
 }) {
+  // Images shown but belonging to an earlier day (carried forward). They're
+  // view-only here — uploading attaches new images to the current day instead.
+  const carried = images.length > 0 && imagesFromDate !== dateStr;
   const router = useRouter();
   const { isAdmin } = useAdmin();
   const [, startTransition] = useTransition();
@@ -155,6 +165,12 @@ export default function ImagePanel({
         )}
       </div>
 
+      {carried && (
+        <p className="mb-2 rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-700">
+          Ảnh từ ngày {formatDate(imagesFromDate)} (chưa có ảnh cho hôm nay)
+        </p>
+      )}
+
       {images.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 p-8">
           <ImageIcon className="h-8 w-8 text-gray-300" />
@@ -178,7 +194,7 @@ export default function ImagePanel({
                 className="h-auto w-full cursor-pointer bg-gray-50 object-contain"
                 onClick={() => setPreviewUrl(img.data)}
               />
-              {isAdmin && (
+              {isAdmin && !carried && (
                 <button
                   onClick={() => handleDelete(img.id)}
                   title="Xóa hình"

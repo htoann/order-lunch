@@ -19,10 +19,10 @@ export default async function Home({
   const params = await searchParams;
   const today = new Date().toISOString().split("T")[0];
   const dateStr = params.date || today;
-  const [{ session, members, dishes, debts, paid }, activities] =
-    await Promise.all([getSessionData(dateStr), getActivities()]);
-
-  const images = session?.images ?? [];
+  const [
+    { members, dishes, debts, paid, session, images, imagesFromDate },
+    activities,
+  ] = await Promise.all([getSessionData(dateStr), getActivities()]);
 
   return (
     <ToastProvider>
@@ -67,7 +67,11 @@ export default async function Home({
             </div>
 
             <div className="order-2 w-full lg:order-3 lg:w-72 xl:w-80">
-              <ImagePanel dateStr={dateStr} images={images} />
+              <ImagePanel
+                dateStr={dateStr}
+                images={images}
+                imagesFromDate={imagesFromDate}
+              />
             </div>
           </div>
 
